@@ -1,9 +1,12 @@
 RAE_OBJ_ID = 'rae' 
 FIG_OBJ_ID = 'fig'
 INTERVAL_ID = 'interval'
+import multiprocessing.synchronize
+import time
 from dash import Dash, html, dcc, Input, Output, Patch, callback
 import plotly.graph_objects as go 
 import networkx as nx
+import multiprocessing 
 
 def get_figure():    
     gnodes_len = 0
@@ -64,26 +67,40 @@ def get_figure():
                     yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
                     )
     return fig 
-fig = get_figure()
 
-@callback(
+def dash_test_(eve:multiprocessing.synchronize.Event,fig:go.Figure):
+
+    @callback(
         Output(FIG_OBJ_ID,"figure"),
         Input(INTERVAL_ID,"n_intervals"),
         )
-def update_figure(interval):
-    sct = fig.data[1]
-    print(len(sct.x))
-    sct.x, sct.y = sct.x[3:], sct.y[3:]
-    patched_figure = Patch()
-    patched_figure["data"][1] = sct
-    return patched_figure
-app = Dash(__name__)    
-app.layout = html.Div([
-    html.Button('Remove an Edge.',id=RAE_OBJ_ID),
-    dcc.Graph(figure=fig,id=FIG_OBJ_ID),
-    dcc.Interval(INTERVAL_ID,5000)
-])
+    def update_figure(interval):
+        patched_figure = Patch()
+        if(eve.is_set()):
+            eve.clear()
+            sct = fig.data[1]
+            print(len(sct.x))
+            sct.x, sct.y = sct.x[3:], sct.y[3:]
+            patched_figure["data"][1] = sct
+        return patched_figure
+    
+    app = Dash(__name__)    
+    
+    app.layout = html.Div([
+        html.Button('Remove an Edge.',id=RAE_OBJ_ID),
+        dcc.Graph(figure=fig,id=FIG_OBJ_ID),
+        dcc.Interval(INTERVAL_ID,100)
+    ])
+    app.run(debug=True)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    fig = get_figure()
+    eve = multiprocessing.Event()
+    prc = multiprocessing.Process(target=dash_test_,args=[eve,fig],)
+    prc.start()
+    while True:
+        time.sleep(2)
+        eve.set()
+    prc.join()
+    # app.run(debug=True)
