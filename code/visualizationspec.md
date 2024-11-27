@@ -2,7 +2,12 @@
 
 ## Properties of an edge: 
 
-Transmitted properties:
+Editable properties:
+    x
+    y
+    color
+
+Init Custom properties:
     name = n1_n2
     x = (x1, x2, None)
     y = (y1, y2, None)
@@ -20,7 +25,14 @@ edge_trace = go.Scatter(
 
 ## Properties of a node:
 
-Transmitted properties:
+Editable properties:
+    x
+    y
+    color
+    hoverinfo
+    hovertext
+
+Init Custom properties:
     name=n
     x
     y
