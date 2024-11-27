@@ -15,6 +15,8 @@ for v in G.nodes:
 
 edge_x = []
 edge_y = []
+edge_colors = []
+i = 0
 for edge in G.edges():
     x0, y0 = G.nodes[edge[0]]['pos']
     x1, y1 = G.nodes[edge[1]]['pos']
@@ -24,10 +26,15 @@ for edge in G.edges():
     edge_y.append(y0)
     edge_y.append(y1)
     edge_y.append(None)
+    if(i == 1):
+        edge_colors.append("red")
+    else:
+        edge_colors.append("blue") 
+    i = (i+1)%2
 
 edge_trace = go.Scatter(
     x=edge_x, y=edge_y,
-    line=dict(width=0.5, color='#888'),
+    line=dict(width=0.5, color=edge_colors),
     hoverinfo='none',
     mode='lines')
 

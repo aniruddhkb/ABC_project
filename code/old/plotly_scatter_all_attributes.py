@@ -65,4 +65,3 @@ fig = go.Figure(data=[node_trace,edge_trace],
                 yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
                 )
 fig.show()
-    
