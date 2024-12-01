@@ -1,3 +1,5 @@
+# TODO: Test a queueless version of this. 
+
 EDGE_WIDTH = 0.5
 NODE_SIZE = 10
 TEXT_SIZE = 22
@@ -12,9 +14,7 @@ import random
 
 from dash import Dash, html, dcc, Input, Output, callback, Patch
 import time
-
 import networkx as nx
-from tqdm import tqdm 
 
 
 
