@@ -22,7 +22,15 @@ class DynAlgo(StatAlgo):
         super().__init__(base_graph) 
         self.update_genner = None 
 
-    def make_update_generator(self,is_add, edge):
+    def update_oneshot(self,is_add:bool,u:int, v:int):
+
+        self.make_update_generator(is_add, u, v)
+
+        self.step_all_remaining()
+
+    def make_update_generator(self,is_add, u, v):
+
+        edge = (u,v)
         assert self.update_genner is None, 'Update generator already exists'
         if not isinstance(edge, tuple) or len(edge) != 2 or not isinstance(edge[0],int) or not isinstance(edge[1],int):
             raise ValueError('Edge must be a tuple of two integers')
@@ -91,7 +99,7 @@ class StatAlgoVis:
             nx_graph.nodes[node]['color'] = DEFAULT_NODE_COLOR
             nx_graph.nodes[node]['size'] = DEFAULT_NODE_SIZE
             nx_graph.nodes[node]['text_size'] = DEFAULT_TEXT_SIZE
-            nx_graph.nodes[node]['hoverinfo'] = None
+            nx_graph.nodes[node]['hoverinfo'] = 'none'
             nx_graph.nodes[node]['hovertext'] = None
             nx_graph.nodes[node]['name'] = str(node)
         for edge in nx_graph.edges:
@@ -117,7 +125,7 @@ class StatAlgoVis:
             textposition='top right',
             customdata=[node_data['hovertext'],],
             hoverinfo=node_data["hoverinfo"],
-            hovertemplate='%{customdata}', 
+            hovertemplate='%{customdata}' if node_data['hoverinfo'] != 'none' else None, 
             marker=go.scatter.Marker(color=node_data["color"],size=node_data['size'])
             )
     
@@ -176,15 +184,36 @@ def default_new_fig():
     return fig
 
 if __name__ == '__main__':
-    nx_graph = nx.Graph()
-    nx_graph.add_nodes_from([1,2,3,4,5])
-    nx_graph.add_edges_from([(1,2),(2,3),(3,4),(4,5),(5,1)])
+    nx_graph = nx.complete_graph(8)
+
     figs_dict = {
         'base':default_new_fig(),
     }
-    static_algo_nx = StatAlgo(nx_graph)
-    nx_graph = static_algo_nx.all_graphs['base']
-    static_algo_vis = StatAlgoVis(static_algo_nx, figs_dict)
+    
+    
+    dyn_algo_nx = DynAlgo(nx_graph)
+
+    ops = [ (False,0,1),
+            (False,0,2),
+            (False,0,3),
+            (False,0,4),
+            (False,0,5),
+            (False,0,6),
+            (False,0,7),
+            (True,0,1),
+            (True,0,2),
+            (True,0,3),
+           ]
+
+
+    for op in ops:
+        dyn_algo_nx.update_oneshot(*op)
+
+    nx_graph = dyn_algo_nx.all_graphs['base']
+
+
+
+    static_algo_vis = StatAlgoVis(dyn_algo_nx, figs_dict)
     static_algo_vis.default_init_all_figs()
     
     # for node in nx_graph.nodes:
