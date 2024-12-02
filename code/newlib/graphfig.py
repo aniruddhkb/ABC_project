@@ -23,17 +23,7 @@ class StatAlgo():
         self.all_graphs:dict[str,nx.Graph] = {}
         self.all_graphs['base'] = self.base_graph
         self.keys = self.all_graphs.keys()
-    def make_generator(self, is_add:bool,u:int,v:int):
-        raise NotImplementedError('Static algorithm, updates not implemented')
 
-    def algo_update_fn(self, is_add:bool, edge:tuple[int,int]):
-        raise NotImplementedError('Static algorithm, updates not implemented')
-    
-    def step(self):
-        raise NotImplementedError('Static algorithm, updates not implemented')
-
-    def step_all_remaining(self):
-        raise NotImplementedError('Static algorithm, updates not implemented')
 
 class DynAlgo(StatAlgo):
     
@@ -66,37 +56,9 @@ class DynAlgo(StatAlgo):
             raise ValueError('Node has edges. Remove edges first')
         self.all_graphs[key].remove_node(node)
 
-    def update_oneshot(self,is_add:bool,u:int, v:int):
-
-        self.make_generator(is_add, u, v)
-        self.step_all_remaining()
-
     def assign_generator(self, update_fn:Callable[[],Generator]):
         assert self.update_genner is None, 'Creating new update before previous update finished. Forbidden as it may lead to graph inconsistencies.'
         self.update_genner = update_fn()
-
-    def yieldtest_assign_generator(self):
-        self.assign_generator(lambda: self.yieldtest_update_fn())
-
-    def default_assign_generator(self, is_node:bool, add_del_or_mod:str, graphelem:int|tuple[int, int]):
-        
-        is_add, is_del, is_mod = self.add_del_mod_dict[add_del_or_mod]
-
-        if(is_node):
-            assert isinstance(graphelem, int), 'Node must be an integer'
-            if(is_mod or is_del):
-                assert graphelem in self.base_graph.nodes, 'Node does not exist'
-            else:
-                assert graphelem not in self.base_graph.nodes, 'Node already exists'
-        else:
-            assert isinstance(graphelem, tuple) and len(graphelem) == 2, 'Edge must be a tuple of two integers'
-            if(is_mod or is_del):
-                assert graphelem in self.base_graph.edges, 'Edge does not exist'    
-            else:
-                assert graphelem not in self.base_graph.edges, 'Edge already exists'
-
-
-        self.assign_generator(lambda: self.default_update_fn(is_node, add_del_or_mod, graphelem))
     
     def step_all_remaining(self):
         while True:
@@ -115,7 +77,6 @@ class DynAlgo(StatAlgo):
         return out
 
     def refresh_update_dict(self, curr_updates:dict):
-        assert not self.update_dict is None, 'Update dict must be initialized'
         for key in curr_updates.keys(): 
             self.update_dict[key]['nodes'].extend(curr_updates[key]['nodes'])
             self.update_dict[key]['edges'].extend(curr_updates[key]['edges'])
@@ -180,7 +141,7 @@ class DynAlgo(StatAlgo):
             curr_updates['base']['nodes'].append((i,'DEL'))
             yield(curr_updates, i==4 )
 
-    def default_update_fn(self, is_node:bool, add_del_or_mod:str, graphelem:int|tuple[int, int]):
+    def example_update_fn(self, is_node:bool, add_del_or_mod:str, graphelem:int|tuple[int, int]):
         self.update_dict = self.get_new_update_dict()
         curr_updates = self.get_new_update_dict()
         is_add, is_del, is_mod = self.add_del_mod_dict[add_del_or_mod]
@@ -224,11 +185,7 @@ class StatVis:
         for key in self.keys:
             self.traces_dict[key] = {}
     
-    def default_init_all_figs(self):
-        for key in self.keys:
-            self.default_init_visdicts(key)
-            self.default_init_nx_layout(key)
-            self.vis_add_traces(key)
+
     
     def default_init_edge_visdict(self, u:int,v:int, key:str):
         
@@ -251,49 +208,12 @@ class StatVis:
         node_data['hovertext'] = None
         node_data['name'] = str(node)
 
-    def default_init_visdicts(self, key:str):
-        nx_graph = self.graphs_dict[key] 
-        for node in nx_graph.nodes:
-            self.default_init_node_visdict(node, key)
-        for edge in nx_graph.edges:
-            self.default_init_edge_visdict(edge[0],edge[1], key)
-
     def default_init_nx_layout(self,key:str,)->None:
         nx_graph = self.graphs_dict[key]
         nx_positions = nx.spring_layout(nx_graph) 
         for node in nx_graph.nodes:
             nx_graph.nodes[node]['pos'] = nx_positions[node].tolist()
-    
-    def default_nxdict_to_node_trace(self, node_data:dict):
-        x,y = node_data['pos']
-        return go.Scatter(
-            x=[x,], y=[y,],
-            mode='markers+text',
-            text=node_data['name'],
-            textfont=dict(size=node_data['text_size']),
-            name=node_data['name'],
-            textposition='top right',
-            customdata=[node_data['hovertext'],],
-            hoverinfo=node_data["hoverinfo"],
-            hovertemplate='%{customdata}' if node_data['hoverinfo'] != 'none' else None,
-            marker=go.scatter.Marker(color=node_data["color"],size=node_data['size'])
-            )
-    
-    def default_nxdict_to_edge_trace(self, edge:tuple[int,int], nx_graph:nx.Graph):
-        u,v = edge
-        edge_data = nx_graph.edges[edge]
-        u_dt,v_dt = nx_graph.nodes[u],nx_graph.nodes[v]
-        u_x,u_y = u_dt['pos']
-        v_x,v_y = v_dt['pos']
-        return go.Scatter(
-                x=(u_x,v_x),
-                y=(u_y,v_y),
-                mode='lines',
-                name=edge_data['name'],
-                line=dict(width=edge_data['width'], color=edge_data['color']),
-                hoverinfo='none',
-            )
-
+     
     def vis_add_traces(self, key:str):
         for node in nx_graph.nodes:
             self.vis_add_node(key,node)
@@ -307,7 +227,19 @@ class StatVis:
         fig = self.figs_dict[key]
         traces_subdict = self.traces_dict[key]
         edge_data = nx_graph.edges[edge]
-        fig.add_trace(self.default_nxdict_to_edge_trace(edge,nx_graph))
+        u_dt,v_dt = nx_graph.nodes[u],nx_graph.nodes[v]
+        u_x,u_y = u_dt['pos']
+        v_x,v_y = v_dt['pos']
+        fig.add_trace(
+            go.Scatter(
+                x=(u_x,v_x),
+                y=(u_y,v_y),
+                mode='lines',
+                name=edge_data['name'],
+                line=dict(width=edge_data['width'], color=edge_data['color']),
+                hoverinfo='none',
+            )
+        )
         new_trace = fig.data[-1]
         assert new_trace['name'] == edge_data['name']
         traces_subdict[edge_data['name']] = new_trace
@@ -317,10 +249,36 @@ class StatVis:
         fig = self.figs_dict[key]
         traces_subdict = self.traces_dict[key]
         node_data = nx_graph.nodes[node]
-        fig.add_trace(self.default_nxdict_to_node_trace(node_data))
+
+        x,y = node_data['pos']
+        fig.add_trace(go.Scatter(
+            x=[x,], y=[y,],
+            mode='markers+text',
+            text=node_data['name'],
+            textfont=dict(size=node_data['text_size']),
+            name=node_data['name'],
+            textposition='top right',
+            customdata=[node_data['hovertext'],],
+            hoverinfo=node_data["hoverinfo"],
+            hovertemplate='%{customdata}' if node_data['hoverinfo'] != 'none' else None,
+            marker=go.scatter.Marker(color=node_data["color"],size=node_data['size'])
+            ))
         new_trace = fig.data[-1]
         assert new_trace['name'] == node_data['name']
         traces_subdict[str(node)] = new_trace
+
+    def vis_init_visdicts(self, key:str):
+        nx_graph = self.graphs_dict[key] 
+        for node in nx_graph.nodes:
+            self.default_init_node_visdict(node, key)
+        for edge in nx_graph.edges:
+            self.default_init_edge_visdict(edge[0],edge[1], key)
+
+    def vis_init_all(self):
+        for key in self.keys:
+            self.vis_init_visdicts(key)
+            self.default_init_nx_layout(key)
+            self.vis_add_traces(key)
 
 class DynVis(StatVis):
 
@@ -328,18 +286,7 @@ class DynVis(StatVis):
         super().__init__(dyn_algo_nx, figs_dict)
         assert isinstance(dyn_algo_nx, DynAlgo), 'algo_nx must be of type DynAlgo'
         self.algo_nx = dyn_algo_nx
-        self.update_in_progress = False
-
-    def assign_algo_update_generator(self, update_fn:Callable[[],Generator]):
-        assert not self.update_in_progress, 'Update already in progress'
-        self.algo_nx.assign_generator(update_fn)
-        self.update_in_progress = True
-
-    def default_assign_algo_update_generator(self, is_node:bool, add_del_or_mod:str, graphelem:int|tuple[int, int]):
-        assert not self.update_in_progress, 'Update already in progress'
         
-        self.algo_nx.default_assign_generator(is_node, add_del_or_mod, graphelem)
-        self.update_in_progress = True
 
     def vis_delete_edge(self,u:int,v:int,key:str):
         u,v = min(u,v), max(u,v)
@@ -378,27 +325,73 @@ class DynVis(StatVis):
         trace['line']['color'] = edge_data['color']
         trace['line']['width'] = edge_data['width'] 
 
-    def get_node_posdicts(self, key:str):
+    def default_add_node_to_nx_layout(self, key:str, node:int):
         nx_graph = self.algo_nx.all_graphs[key]
         pos_dict = {}
         for node in nx_graph.nodes:
             if('pos' in nx_graph.nodes[node]):
                 pos_dict[node] = nx_graph.nodes[node]['pos']
-        return pos_dict
-
-    def default_add_node_to_nx_layout(self, key:str, node:int):
-        nx_graph = self.algo_nx.all_graphs[key]
-        posdict = self.get_node_posdicts(key)
-        if(node in posdict):
-            posdict.pop(node)
-        if(len(posdict.keys()) == 0):
+        if(node in pos_dict):
+            pos_dict.pop(node)
+        if(len(pos_dict.keys()) == 0):
             new_layout = nx.spring_layout(nx_graph)
         else:
-            new_layout = nx.spring_layout(nx_graph, pos=posdict)
+            new_layout = nx.spring_layout(nx_graph, pos=pos_dict)
         nx_graph.nodes[node]['pos'] = new_layout[node].tolist()
 
-    def default_vis_step(self, all:bool=False):
-        assert self.update_in_progress, 'No update in progress'
+
+    def skeleton_vis_step(self, all:bool=False):
+        if all:
+            step_result = self.algo_nx.step_all_remaining()
+        else:
+            step_result = self.algo_nx.step()
+        
+        to_update = step_result[0]
+        
+        for key in to_update.keys():
+            to_update_subdict = to_update[key] 
+            for (node,opkeyword) in to_update_subdict['nodes']:
+                if opkeyword == 'ADD':
+                    self.default_add_node_to_nx_layout(key,node)
+                    self.default_init_node_visdict(node,key)
+                    node_data = self.algo_nx.all_graphs[key].nodes[node]
+                    
+                    # ... and do something right here. Mod the visdict. If you need to.
+
+                    self.vis_add_node(key,node)
+
+                elif opkeyword == 'DEL':
+                    self.vis_delete_node(node,key)
+                
+                elif opkeyword == 'MOD':
+                    node_data = self.algo_nx.all_graphs[key].nodes[node]
+
+                    # ... and do something right here. Mod the visdict. If you need to.
+
+                    self.vis_update_node(key,node)
+
+            for(edge, opkeyword) in to_update_subdict['edges']:
+
+                if opkeyword == 'ADD':
+                    self.default_init_edge_visdict(*edge,key)
+
+                    # ... and do something right here. Mod the visdict. If you need to. 
+
+                    self.vis_add_edge(key,*edge) 
+
+                elif opkeyword == 'DEL':
+                    self.vis_delete_edge(*edge,key)
+
+                elif opkeyword == 'MOD':
+                    edge_data = self.algo_nx.all_graphs[key].edges[edge]
+
+                    # ... and do something right here. Mod the visdict. If you need to. 
+
+                    self.vis_update_edge(key,*edge)
+
+        return self.figs_dict[key]
+
+    def example_vis_step(self, all:bool=False):
         if all:
             step_result = self.algo_nx.step_all_remaining()
         else:
@@ -432,17 +425,16 @@ class DynVis(StatVis):
                     self.vis_delete_edge(*edge,key)
                 elif opkeyword == 'MOD':
                     self.vis_update_edge(key,*edge)
+        
+        return self.figs_dict[key]
 
     def yieldtest_vis_step(self,all:bool=False):
-        assert self.update_in_progress, 'No update in progress'
-        self.update_in_progress = True
+
         if all:
             step_result = self.algo_nx.step_all_remaining()
         else:
             step_result = self.algo_nx.step()
             
-        if step_result[1]:
-            self.update_in_progress = False
         
         to_update = step_result[0]
         
@@ -507,10 +499,7 @@ if __name__ == '__main__':
             'base':default_new_fig(),
         }
         dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
-        dyn_vis.default_init_all_figs()
-
-
-        
+        dyn_vis.vis_init_all()
 
         @app.callback(
             Output('base_fig', 'figure'),
@@ -520,9 +509,9 @@ if __name__ == '__main__':
         def incremental_step_callback(n_clicks):
             
             if n_clicks is not None:
-                if not dyn_vis.update_in_progress:
+                if dyn_vis.algo_nx.update_genner is None:
             
-                    dyn_vis.assign_algo_update_generator(dyn_vis.algo_nx.yieldtest_update_fn)
+                    dyn_vis.algo_nx.assign_generator(dyn_vis.algo_nx.yieldtest_update_fn)
             
             
                 dyn_vis.yieldtest_vis_step()
