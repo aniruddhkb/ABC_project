@@ -111,3 +111,7 @@ DynVis
 1. Outside, create a figs_dict as needed.                                                       (As in StatVis)
 2. Modify default_init_node_visdict , default_init_edge_visdict and default_init_nx_layout      (As in StatVis) 
 3. Implement a concrete version of skeleton_vis_step
+
+Main 
+
+See the __main__ section of graphfig.py

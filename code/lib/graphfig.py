@@ -215,6 +215,7 @@ class StatVis:
             nx_graph.nodes[node]['pos'] = nx_positions[node].tolist()
      
     def vis_add_traces(self, key:str):
+        nx_graph = self.graphs_dict[key]
         for node in nx_graph.nodes:
             self.vis_add_node(key,node)
         for edge in nx_graph.edges:
@@ -492,130 +493,32 @@ def default_new_fig():
 
 if __name__ == '__main__':
     app = Dash(__name__)
-    YIELDTEST = True
-    if YIELDTEST:
-        nx_graph = nx.Graph()
-        figs_dict = {
-            'base':default_new_fig(),
-        }
-        dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
-        dyn_vis.vis_init_all()
 
-        @app.callback(
-            Output('base_fig', 'figure'),
-            Input('step_button', 'n_clicks'),
-            suppress_initial_call=True
-        )
-        def incremental_step_callback(n_clicks):
-            
-            if n_clicks is not None:
-                if dyn_vis.algo_nx.update_genner is None:
-            
-                    dyn_vis.algo_nx.assign_generator(dyn_vis.algo_nx.yieldtest_update_fn)
-            
-            
-                dyn_vis.yieldtest_vis_step()
-            return dyn_vis.figs_dict['base']
+    nx_graph = nx.Graph()
+    figs_dict = {
+        'base':default_new_fig(),
+    }
+    dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
+    dyn_vis.vis_init_all()
+
+    @app.callback(
+        Output('base_fig', 'figure'),
+        Input('step_button', 'n_clicks'),
+        suppress_initial_call=True
+    )
+    def incremental_step_callback(n_clicks):
         
-        app.layout = html.Div([
-            html.Button('Incremental Step', id='step_button'),
-            dcc.Graph(figure=figs_dict['base'], id='base_fig')
-        ])
-        app.run_server(debug=True)
+        if n_clicks is not None:
+            if dyn_vis.algo_nx.update_genner is None:
         
-
-    # else:
-    #     nx_graph = nx.complete_graph(8)
-    #     figs_dict = {
-    #         'base':default_new_fig(),
-    #     }
-
-    #     dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
-    #     dyn_vis.default_init_all_figs()
-
-    #     ops = [ 
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "DEL",
-    #             "graphelem": (0,1)
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "DEL",
-    #             "graphelem": (0,2)
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "DEL",
-    #             "graphelem": (0,3)
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "DEL",
-    #             "graphelem": (0,4)
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "DEL",
-    #             "graphelem": (0,5)
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "DEL",
-    #             "graphelem": (0,6)
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "DEL",
-    #             "graphelem": (0,7)
-    #         },
-    #         {
-    #             "is_node": True,
-    #             "add_del_or_mod": "DEL",
-    #             "graphelem": 0
-    #         },
-    #         {
-    #             "is_node": True,
-    #             "add_del_or_mod": "ADD",
-    #             "graphelem": 9
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "ADD",
-    #             "graphelem": (1,9)
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "ADD",
-    #             "graphelem": (2,9)
-    #         },
-    #         {
-    #             "is_node": False,
-    #             "add_del_or_mod": "ADD",
-    #             "graphelem": (3,9)
-    #         },
-            
-    #         ]
-    #     app = Dash(__name__)
+                dyn_vis.algo_nx.assign_generator(dyn_vis.algo_nx.yieldtest_update_fn)
         
-    #     @app.callback(
-    #         Output('base', 'figure'),
-    #         Input('oneshot_step_button', 'n_clicks'),
-    #         suppress_initial_call=True
-    #     )
-    #     def oneshot_step_callback(n_clicks):
-    #         if not n_clicks is None:
+        
+            dyn_vis.yieldtest_vis_step()
+        return dyn_vis.figs_dict['base']
     
-    #             if len(ops) > 0:
-    #                 op = ops.pop(0) 
-    #                 dyn_vis.default_assign_algo_update_generator(**op)
-    #                 dyn_vis.default_vis_step(True) 
-    #         return figs_dict['base']
-
-    #     app.layout = html.Div([
-    #         html.Button('Oneshot Step', id='oneshot_step_button'),
-    #         dcc.Graph(figure=figs_dict['base'], id='base')
-    #     ])
-
-
-    #     app.run_server(debug=True)
+    app.layout = html.Div([
+        html.Button('Incremental Step', id='step_button'),
+        dcc.Graph(figure=figs_dict['base'], id='base_fig')
+    ])
+    app.run_server(debug=True)

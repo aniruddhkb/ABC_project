@@ -1,3 +1,3 @@
-# from lib.graph import *
+from lib.graphfig import *
 # import networkx
-import lib.syscheck 
+# import lib.syscheck 
