@@ -4,6 +4,8 @@ Based on instructions and code from https://realpython.com/python313-free-thread
 Bartosz Zaczyński--"Python 3.13 Preview: Free Threading and a JIT Compiler" Real Python , Sep 18 2024.
 '''
 
+# This turned out to not be necessary. Keeping it as it may be helpful later on.
+
 import sys 
 import sysconfig 
 
