@@ -81,67 +81,87 @@ class DynAlgo(StatAlgo):
             self.update_dict[key]['nodes'].extend(curr_updates[key]['nodes'])
             self.update_dict[key]['edges'].extend(curr_updates[key]['edges'])
 
-    def yieldtest_update_fn(self):
+    def yieldtest_update_fn(self, perf_mode:bool=False):
         
         assert len(self.base_graph.nodes) == 0, 'Graph must be empty'
-        self.update_dict = self.get_new_update_dict()
+
+        if not perf_mode:
+            self.update_dict = self.get_new_update_dict()
         #Adding and modding nodes 
 
         for i in range(5): 
-        
-            curr_updates = self.get_new_update_dict()
+            
             self.nx_add_node('base', i)
-            curr_updates['base']['nodes'].append((i,'ADD'))
-            self.refresh_update_dict(curr_updates)
-            yield (curr_updates, False)
 
-            curr_updates = self.get_new_update_dict()
-            curr_updates['base']['nodes'].append((i,'MOD'))
-            self.refresh_update_dict(curr_updates)
-            yield (curr_updates, False) 
+            if not perf_mode:
+                curr_updates = self.get_new_update_dict()
+                curr_updates['base']['nodes'].append((i,'ADD'))
+                self.refresh_update_dict(curr_updates)
+                yield (curr_updates, False)
+            
+
+            if not perf_mode:
+                curr_updates = self.get_new_update_dict()
+                curr_updates['base']['nodes'].append((i,'MOD'))
+                self.refresh_update_dict(curr_updates)
+                yield (curr_updates, False) 
         
         #Adding and modding edges
         for i in range(5):
             for j in range(i):
 
-                curr_updates = self.get_new_update_dict()
                 self.nx_add_edge('base', i, j)
-                curr_updates['base']['edges'].append(((i,j),'ADD'))
-                self.refresh_update_dict(curr_updates)
-                yield (curr_updates, False)
+                
+                if not perf_mode:
+                    curr_updates = self.get_new_update_dict()
+                    curr_updates['base']['edges'].append(((i,j),'ADD'))
+                    self.refresh_update_dict(curr_updates)
+                    yield (curr_updates, False)
 
-                curr_updates = self.get_new_update_dict()
-                curr_updates['base']['edges'].append(((i,j),'MOD'))
-                self.refresh_update_dict(curr_updates)
-                yield (curr_updates, False)
+                
+                if not perf_mode:
+                    curr_updates = self.get_new_update_dict()
+                    curr_updates['base']['edges'].append(((i,j),'MOD'))
+                    self.refresh_update_dict(curr_updates)
+                    yield (curr_updates, False)
 
 
         #Modding and deleting edges
         for i in range(5):
             for j in range(i):
                 
-                curr_updates = self.get_new_update_dict()
-                curr_updates['base']['edges'].append(((i,j),'MOD'))
-                self.refresh_update_dict(curr_updates)
-                yield (curr_updates, False)
+                if not perf_mode:
+                    curr_updates = self.get_new_update_dict()
+                    curr_updates['base']['edges'].append(((i,j),'MOD'))
+                    self.refresh_update_dict(curr_updates)
+                    yield (curr_updates, False)
 
-                curr_updates = self.get_new_update_dict()
+                
                 self.nx_remove_edge('base', i, j)
-                curr_updates['base']['edges'].append(((i,j),'DEL'))
-                self.refresh_update_dict(curr_updates)
-                yield (curr_updates, False)
+                
+                if not perf_mode:
+                    curr_updates = self.get_new_update_dict()
+                    curr_updates['base']['edges'].append(((i,j),'DEL'))
+                    self.refresh_update_dict(curr_updates)
+                    yield (curr_updates, False)
         
         #Modding and deleting nodes
         for i in range(5):
-            curr_updates = self.get_new_update_dict()
-            curr_updates['base']['nodes'].append((i,'MOD'))
-            yield (curr_updates, False)
-            curr_updates = self.get_new_update_dict()
+            
+            if not perf_mode:
+                curr_updates = self.get_new_update_dict()
+                curr_updates['base']['nodes'].append((i,'MOD'))
+                yield (curr_updates, False)
+            
             self.nx_remove_node('base', i)
-            curr_updates['base']['nodes'].append((i,'DEL'))
-            yield(curr_updates, i==4 )
-
+            
+            if not perf_mode:
+                curr_updates = self.get_new_update_dict()
+                curr_updates['base']['nodes'].append((i,'DEL'))
+                yield(curr_updates, i==4 )
+            
     def example_update_fn(self, is_node:bool, add_del_or_mod:str, graphelem:int|tuple[int, int]):
+        raise NotImplementedError('This function is no longer in the correct form needed, and I am too lazy to fix it.')
         self.update_dict = self.get_new_update_dict()
         curr_updates = self.get_new_update_dict()
         is_add, is_del, is_mod = self.add_del_mod_dict[add_del_or_mod]
