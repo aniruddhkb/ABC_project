@@ -1,6 +1,7 @@
-from graphfig import * 
+from lib.graphfig import * 
 import networkx as nx
 from collections import deque
+
 class BFSAlgo(StatAlgo):
 
     def __init__(self, base_graph:nx.Graph, start_node:int):
@@ -63,18 +64,6 @@ class BFSAlgo(StatAlgo):
                     neighbor_node_data['tree_parent'] = curr_node
                     self.bfs_graph.edges[(curr_node, neighbor_node)]['is_tree_edge'] = True 
     
-    def get_bfs_tree(self):
-        return self.bfs_graph
-    
-    def level(self, node:int):
-        return self.bfs_graph.nodes[node]['level'] 
-    
-    def parent(self, node:int):
-        return self.bfs_graph.nodes[node]['tree_parent'] 
-    
-    def is_tree_edge(self, edge:tuple):
-        return self.bfs_graph.edges[edge]['is_tree_edge']
-    
     def path_to_source(self, node:int):
         path = [node]
         while self.bfs_graph.nodes[node]['tree_parent'] != -1:
@@ -84,25 +73,52 @@ class BFSAlgo(StatAlgo):
 
 class BFSVis(StatVis):
 
-    def __init__(self, algo:BFSAlgo,figs_dict:dict[str:go.Figure]):
-        super().__init__(algo,figs_dict)
+    def __init__(self, algo:BFSAlgo,fig:dict[str:go.Figure]):
+        figs_dict = {"bfs_tree":fig}
+        super().__init__(algo,figs_dict) 
 
-    def default_init_node_visdict(self, node: int, key: str):
-        if(key == 'base'):
-            super().default_init_node_visdict(node, key)
-        else:
-        
-            nx_graph = self.graphs_dict[key] 
-            node_data = nx_graph.nodes[node]
-            node_data['color'] = DEFAULT_NODE_COLOR
+    def node_inf_to_hovertext(self,node_data):
+        return '<br>'.join([
+            f"Lvl: {node_data['level']}",
+            f"P_T: {node_data['tree_parent'] if node_data['tree_parent'] != -1 else 'None'}",
+            f"P: {node_data['parents']   if len(node_data['parents']) > 0 else 'None'}",
+            f"F: {node_data['friends']   if len(node_data['friends']) > 0 else 'None'}",
+            f"C: {node_data['children']  if len(node_data['children']) > 0 else 'None'}",
+        ])
+    def default_init_node_visdict(self, node: int, key: str):     
+        assert key == 'bfs_tree'
+
+        nx_graph = self.graphs_dict[key] 
+        node_data = nx_graph.nodes[node]
+
+        node_data['color'] = 'green' if node == self.algo_nx.start_node else 'red'
         node_data['size'] = DEFAULT_NODE_SIZE
         node_data['text_size'] = DEFAULT_TEXT_SIZE
-        node_data['hoverinfo'] = 'none'
-        node_data['hovertext'] = None
+        node_data['hoverinfo'] = None 
+        node_data['hovertext'] = self.node_inf_to_hovertext(node_data)      
         node_data['name'] = str(node)
 
+    def default_init_edge_visdict(self, u:int, v:int , key: str):
+        assert key == 'bfs_tree'
+        nx_graph = self.graphs_dict[key]
+        u,v = min(u,v), max(u,v)
+        edge = (u,v)
+        edge_data = nx_graph.edges[edge]
 
+        edge_data['name'] = f"{u}_{v}"
+        edge_data['color'] = 'red' if edge_data['is_tree_edge'] else DEFAULT_EDGE_COLOR
+        edge_data['width'] = DEFAULT_EDGE_WIDTH
+        edge_data['hoverinfo'] = 'none'
+        edge_data['hovertext'] = None
 
+    def default_init_nx_layout(self, key: str) -> None:
+        assert key == 'bfs_tree'
+        nx_graph = self.graphs_dict[key]
+        nx_positions = nx.bfs_layout(nx_graph, self.algo_nx.start_node,align='horizontal')
+
+        for node in nx_graph.nodes:
+            nx_positions[node][1] = -nx_positions[node][1]
+            nx_graph.nodes[node]['pos'] = nx_positions[node].tolist()
 
 if __name__ == "__main__": 
     from pprint import pprint
@@ -128,8 +144,18 @@ if __name__ == "__main__":
         (7, 8)
     ])
 
+    base_graph = nx.random_geometric_graph(60,0.15)
+    base_graph = base_graph.subgraph(nx.node_connected_component(base_graph,0)) 
     bfs_algo = BFSAlgo(base_graph, 0)
-    pprint(dict(bfs_algo.bfs_graph.nodes(data=True)))
+    fig = new_default_fig()
+    fig.update_layout(hoverlabel=dict(font_size=18))
+    fig.update_layout(width=1500,height=900)
+    bfs_vis = BFSVis(bfs_algo,fig)
+    bfs_vis.vis_init_all()
 
-    print(bfs_algo.bfs_graph.edges(data=True))
-    # pprint(dict())
+    app = Dash(__name__)
+
+    app.layout = html.Div([
+        dcc.Graph(figure=fig)
+    ])
+    app.run_server(debug=True)

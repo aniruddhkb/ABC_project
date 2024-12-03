@@ -1,4 +1,4 @@
-from lib import DynVis, DynAlgo, default_new_fig
+from lib import DynVis, DynAlgo, new_default_fig
 from dash import Dash, html, dcc, Input, Output
 import networkx as nx
 
@@ -7,7 +7,7 @@ if __name__ == '__main__':
 
     nx_graph = nx.Graph()
     figs_dict = {
-        'base':default_new_fig(),
+        'base':new_default_fig(),
     }
     dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
     dyn_vis.vis_init_all()

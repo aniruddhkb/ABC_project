@@ -5,7 +5,7 @@ import networkx as nx
 from dash import Dash, html, dcc, Input, Output, callback, Patch
 import plotly.graph_objects as go 
 from typing import Type
-
+from pprint import pprint
 
 DEFAULT_TEXT_SIZE = 24
 DEFAULT_NODE_SIZE = 10
@@ -126,6 +126,8 @@ class DynAlgo(StatAlgo):
                     yield (curr_updates, False)
 
 
+        if perf_mode:
+            yield
         #Modding and deleting edges
         for i in range(5):
             for j in range(i):
@@ -491,7 +493,7 @@ class DynVis(StatVis):
                     self.vis_update_edge(key,*edge)
         return self.figs_dict[key]
 
-def default_new_fig():
+def new_default_fig():
     fig = go.Figure(
         data=None,
         layout=go.Layout(
@@ -512,33 +514,44 @@ def default_new_fig():
     return fig
 
 if __name__ == '__main__':
-    app = Dash(__name__)
 
-    nx_graph = nx.Graph()
-    figs_dict = {
-        'base':default_new_fig(),
-    }
-    dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
-    dyn_vis.vis_init_all()
+    PERF_MODE = True
+    if PERF_MODE:
+        nx_graph = nx.Graph()
+        da = DynAlgo(nx_graph) 
+        next(da.yieldtest_update_fn(perf_mode=True))
+        
+        print(da.all_graphs['base'].nodes(data=True))
+        print(da.all_graphs['base'].edges(data=True))
 
-    @app.callback(
-        Output('base_fig', 'figure'),
-        Input('step_button', 'n_clicks'),
-        suppress_initial_call=True
-    )
-    def incremental_step_callback(n_clicks):
+    else:
+        app = Dash(__name__)
+
+        nx_graph = nx.Graph()
+        figs_dict = {
+            'base':new_default_fig(),
+        }
+        dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
+        dyn_vis.vis_init_all()
+
+        @app.callback(
+            Output('base_fig', 'figure'),
+            Input('step_button', 'n_clicks'),
+            suppress_initial_call=True
+        )
+        def incremental_step_callback(n_clicks):
+            
+            if n_clicks is not None:
+                if dyn_vis.algo_nx.update_genner is None:
+            
+                    dyn_vis.algo_nx.assign_generator(dyn_vis.algo_nx.yieldtest_update_fn)
+            
+            
+                dyn_vis.yieldtest_vis_step()
+            return dyn_vis.figs_dict['base']
         
-        if n_clicks is not None:
-            if dyn_vis.algo_nx.update_genner is None:
-        
-                dyn_vis.algo_nx.assign_generator(dyn_vis.algo_nx.yieldtest_update_fn)
-        
-        
-            dyn_vis.yieldtest_vis_step()
-        return dyn_vis.figs_dict['base']
-    
-    app.layout = html.Div([
-        html.Button('Incremental Step', id='step_button'),
-        dcc.Graph(figure=figs_dict['base'], id='base_fig')
-    ])
-    app.run_server(debug=True)
+        app.layout = html.Div([
+            html.Button('Incremental Step', id='step_button'),
+            dcc.Graph(figure=figs_dict['base'], id='base_fig')
+        ])
+        app.run_server(debug=True)

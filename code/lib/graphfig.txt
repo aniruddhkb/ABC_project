@@ -82,7 +82,7 @@ DynAlgo:
 1. Implement the build stage of the algo in init.     (As you did in StaticAlgo)
 2. Implement query.                                    (As you did in StaticAlgo)
 
-3. Implement an update_fn similar to example_update_fn and yieldtest_update_fn, in the following manner:
+3. Implement an update_fn similar to yieldtest_update_fn, in the following manner:
 
     At the beginning of the fn, call:
         self.update_dict = self.get_new_update_dict()
