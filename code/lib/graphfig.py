@@ -311,20 +311,20 @@ class DynVis(StatVis):
         self.algo_nx = dyn_algo_nx
         
 
-    def vis_delete_edge(self,u:int,v:int,key:str):
+    def vis_delete_edgetrace(self,u:int,v:int,key:str):
         u,v = min(u,v), max(u,v)
         traces_subdict = self.traces_dict[key]
         assert f'{u}_{v}' in traces_subdict, 'Edge does not exist'
         traces_subdict[f'{u}_{v}']['visible'] = False
         traces_subdict.pop(f'{u}_{v}') 
 
-    def vis_delete_node(self,node:int,key:str):
+    def vis_delete_nodetrace(self,node:int,key:str):
         traces_subdict = self.traces_dict[key]
         assert str(node) in traces_subdict, 'Node does not exist'
         traces_subdict[str(node)]['visible'] = False
         traces_subdict.pop(str(node))
 
-    def vis_update_node(self,key:str,node:int):
+    def vis_update_nodetrace(self,key:str,node:int):
         node_data = self.algo_nx.all_graphs[key].nodes[node] 
         trace = self.traces_dict[key][str(node)]
         x,y = node_data['pos']
@@ -337,7 +337,7 @@ class DynVis(StatVis):
         trace['marker']['size'] = node_data['size']
         trace['textfont']['size'] = node_data['text_size']
 
-    def vis_update_edge(self,key:str,u,v):
+    def vis_update_edgetrace(self,key:str,u,v):
         u,v = min(u,v), max(u,v)
         edge_data = self.algo_nx.all_graphs[key].edges[(u,v)]
         trace = self.traces_dict[key][f'{u}_{v}']
@@ -373,25 +373,7 @@ class DynVis(StatVis):
         
         for key in to_update.keys():
             to_update_subdict = to_update[key] 
-            for (node,opkeyword) in to_update_subdict['nodes']:
-                if opkeyword == 'ADD':
-                    self.default_add_node_to_nx_layout(key,node)
-                    self.default_init_node_visdict(node,key)
-                    node_data = self.algo_nx.all_graphs[key].nodes[node]
-                    
-                    # ... and do something right here. Mod the visdict. If you need to.
 
-                    self.vis_add_node(key,node)
-
-                elif opkeyword == 'DEL':
-                    self.vis_delete_node(node,key)
-                
-                elif opkeyword == 'MOD':
-                    node_data = self.algo_nx.all_graphs[key].nodes[node]
-
-                    # ... and do something right here. Mod the visdict. If you need to.
-
-                    self.vis_update_node(key,node)
 
             for(edge, opkeyword) in to_update_subdict['edges']:
 
@@ -403,16 +385,39 @@ class DynVis(StatVis):
                     self.vis_add_edge(key,*edge) 
 
                 elif opkeyword == 'DEL':
-                    self.vis_delete_edge(*edge,key)
+                    self.vis_delete_edgetrace(*edge,key)
 
                 elif opkeyword == 'MOD':
                     edge_data = self.algo_nx.all_graphs[key].edges[edge]
-
+                    self.default_init_edge_visdict(*edge,key)
                     # ... and do something right here. Mod the visdict. If you need to. 
 
-                    self.vis_update_edge(key,*edge)
+                    self.vis_update_edgetrace(key,*edge)
 
-        return self.figs_dict[key]
+ 
+
+            for (node,opkeyword) in to_update_subdict['nodes']:
+                if opkeyword == 'ADD':
+                    self.default_add_node_to_nx_layout(key,node)
+                    self.default_init_node_visdict(node,key)
+                    node_data = self.algo_nx.all_graphs[key].nodes[node]
+                    
+                    # ... and do something right here. Mod the visdict. If you need to.
+
+                    self.vis_add_node(key,node)
+
+                elif opkeyword == 'DEL':
+                    self.vis_delete_nodetrace(node,key)
+                
+                elif opkeyword == 'MOD':
+                    node_data = self.algo_nx.all_graphs[key].nodes[node]
+                    self.default_init_node_visdict(node,key)
+
+                    # ... and do something right here. Mod the visdict. If you need to.
+
+                    self.vis_update_nodetrace(key,node)
+
+       
 
     def example_vis_step(self, all:bool=False):
         if all:
@@ -434,10 +439,10 @@ class DynVis(StatVis):
                     self.vis_add_node(key,node)
 
                 elif opkeyword == 'DEL':
-                    self.vis_delete_node(node,key)
+                    self.vis_delete_nodetrace(node,key)
                 
                 elif opkeyword == 'MOD':
-                    self.vis_update_node(key,node)
+                    self.vis_update_nodetrace(key,node)
 
             for(edge, opkeyword) in to_update_subdict['edges']:
                 if opkeyword == 'ADD':
@@ -445,9 +450,9 @@ class DynVis(StatVis):
                     self.default_init_edge_visdict(*edge,key)
                     self.vis_add_edge(key,*edge)
                 elif opkeyword == 'DEL':
-                    self.vis_delete_edge(*edge,key)
+                    self.vis_delete_edgetrace(*edge,key)
                 elif opkeyword == 'MOD':
-                    self.vis_update_edge(key,*edge)
+                    self.vis_update_edgetrace(key,*edge)
         
         return self.figs_dict[key]
 
@@ -469,28 +474,28 @@ class DynVis(StatVis):
                     self.default_init_node_visdict(node,key)
                     self.vis_add_node(key,node)
                 elif opkeyword == 'DEL':
-                    self.vis_delete_node(node,key)
+                    self.vis_delete_nodetrace(node,key)
                 elif opkeyword == 'MOD':
                     node_data = self.algo_nx.all_graphs[key].nodes[node]
                     if(node_data['color'] == DEFAULT_NODE_COLOR):
                         node_data['color'] = ALT_NODE_COLOR
                     else: 
                         node_data['color'] = DEFAULT_NODE_COLOR
-                    self.vis_update_node(key,node)
+                    self.vis_update_nodetrace(key,node)
             
             for(edge, opkeyword) in to_update_subdict['edges']:
                 if opkeyword == 'ADD':
                     self.default_init_edge_visdict(*edge,key)
                     self.vis_add_edge(key,*edge)
                 elif opkeyword == 'DEL':
-                    self.vis_delete_edge(*edge,key)
+                    self.vis_delete_edgetrace(*edge,key)
                 elif opkeyword == 'MOD':
                     edge_data = self.algo_nx.all_graphs[key].edges[edge]
                     if(edge_data['color'] == DEFAULT_EDGE_COLOR):
                         edge_data['color'] = ALT_EDGE_COLOR
                     else: 
                         edge_data['color'] = DEFAULT_EDGE_COLOR
-                    self.vis_update_edge(key,*edge)
+                    self.vis_update_edgetrace(key,*edge)
         return self.figs_dict[key]
 
 def new_default_fig():
@@ -498,7 +503,7 @@ def new_default_fig():
         data=None,
         layout=go.Layout(
             title=dict(
-                text='Graph',
+                text=None,
                 font=dict(
                     size=DEFAULT_TEXT_SIZE,
                 )
@@ -531,8 +536,8 @@ if __name__ == '__main__':
         figs_dict = {
             'base':new_default_fig(),
         }
-        dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
-        dyn_vis.vis_init_all()
+        es_vis = DynVis(DynAlgo(nx_graph), figs_dict)
+        es_vis.vis_init_all()
 
         @app.callback(
             Output('base_fig', 'figure'),
@@ -542,13 +547,13 @@ if __name__ == '__main__':
         def incremental_step_callback(n_clicks):
             
             if n_clicks is not None:
-                if dyn_vis.algo_nx.update_genner is None:
+                if es_vis.algo_nx.update_genner is None:
             
-                    dyn_vis.algo_nx.assign_generator(dyn_vis.algo_nx.yieldtest_update_fn)
+                    es_vis.algo_nx.assign_generator(es_vis.algo_nx.yieldtest_update_fn)
             
             
-                dyn_vis.yieldtest_vis_step()
-            return dyn_vis.figs_dict['base']
+                es_vis.yieldtest_vis_step()
+            return es_vis.figs_dict['base']
         
         app.layout = html.Div([
             html.Button('Incremental Step', id='step_button'),

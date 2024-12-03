@@ -1,4 +1,4 @@
-from lib.graphfig import * 
+from graphfig import * 
 import networkx as nx
 from collections import deque
 
@@ -144,14 +144,14 @@ if __name__ == "__main__":
         (7, 8)
     ])
 
-    base_graph = nx.random_geometric_graph(60,0.15)
-    base_graph = base_graph.subgraph(nx.node_connected_component(base_graph,0)) 
+    # base_graph = nx.random_geometric_graph(60,0.15)
+    # base_graph = base_graph.subgraph(nx.node_connected_component(base_graph,0)) 
     bfs_algo = BFSAlgo(base_graph, 0)
     fig = new_default_fig()
     fig.update_layout(hoverlabel=dict(font_size=18))
     fig.update_layout(width=1500,height=900)
-    bfs_vis = BFSVis(bfs_algo,fig)
-    bfs_vis.vis_init_all()
+    es_vis = BFSVis(bfs_algo,fig)
+    es_vis.vis_init_all()
 
     app = Dash(__name__)
 
