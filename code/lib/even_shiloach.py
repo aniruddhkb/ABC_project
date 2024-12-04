@@ -22,6 +22,10 @@ OG_ORPHAN_COLOR = 'red'
 ORPHAN_NODE_COLOR = 'blue'
 CURR_ORPHAN_COLOR = 'green'
 NEIGHBORS_COLOR = 'blue'
+
+VIS_Y_EPSILON = 0.2
+VIS_X_ORPH_COEFF = 0.1
+VIS_X_DRIFT_COEFF = 0.8
 class ESAlgo(DynAlgo):
 
     def __init__(self, base_graph:nx.Graph, start_node:int):
@@ -60,7 +64,7 @@ class ESAlgo(DynAlgo):
             curr_node_level = curr_node_data['level']
 
             if curr_node_level not in self.levels_to_nodes:
-                self.levels_to_nodes[curr_node_level] = [] 
+                self.levels_to_nodes[curr_node_level] = []
             self.levels_to_nodes[curr_node_level].append(curr_node)
 
             for neighbor_node in self.es_graph.neighbors(curr_node):
@@ -68,6 +72,7 @@ class ESAlgo(DynAlgo):
 
                 if neighbor_node_data['visited']:
                     neighbor_node_level = neighbor_node_data['level']
+
                     if neighbor_node_level == curr_node_level + 1: 
                         neighbor_node_data['parents'].add(curr_node)
                         curr_node_data['children'].add(neighbor_node)
@@ -79,6 +84,7 @@ class ESAlgo(DynAlgo):
                     elif neighbor_node_level == curr_node_level - 1: 
                         curr_node_data['parents'].add(neighbor_node)
                         neighbor_node_data['children'].add(curr_node)
+
                     else:
                         raise ValueError(f'Inconsistent levels for nodes {curr_node} and {neighbor_node}')
                     
@@ -182,6 +188,13 @@ class ESAlgo(DynAlgo):
                 while len(orphans_Q) > 0:    
                     curr_Q_node = orphans_Q.popleft() 
                     curr_Q_node_data = self.es_graph.nodes[curr_Q_node]
+                    if not perf_mode:
+                        curr_updates['es_tree']['nodes'].append((curr_Q_node,'MOD'))
+                        curr_Q_node_data["curr_orphan"] = True 
+                        self.refresh_update_dict(curr_updates)
+                        yield(curr_updates, False)
+                        curr_updates = self.get_new_update_dict()
+
                     self.levels_to_nodes[curr_Q_node_data['level']].remove(curr_Q_node)
                     curr_Q_node_data['level'] += 1 
                     if curr_Q_node_data['level'] not in self.levels_to_nodes:
@@ -190,10 +203,13 @@ class ESAlgo(DynAlgo):
 
                     if not perf_mode:
                         curr_updates['es_tree']['nodes'].append((curr_Q_node,'MOD'))
-                        curr_Q_node_data["curr_orphan"] = True 
+                        self.refresh_update_dict(curr_updates)
+                        yield(curr_updates, False)
+                        curr_updates = self.get_new_update_dict()
                     
                     print("POPPED FROM Q:", curr_Q_node)
                     
+                    # DISCONNECTION CONDITION
                     if(len(self.levels_to_nodes[curr_Q_node_data['level'] - 1]) == 0):
                         self.levels_to_nodes.pop(curr_Q_node_data['level'] - 1)
                     
@@ -208,10 +224,6 @@ class ESAlgo(DynAlgo):
                             yield(None, True)
                             return
 
-                    
-                    
-                        
-                        
 
                     curr_Q_node_data['parents'] = curr_Q_node_data['friends'].copy()
 
@@ -245,7 +257,7 @@ class ESAlgo(DynAlgo):
                             self.es_graph.edges[(former_child_data['tree_parent'],former_child)]['is_tree_edge'] = True
                             if not perf_mode:
                                 curr_updates['es_tree']['edges'].append(((former_child,former_child_data['tree_parent']),'MOD'))
-
+                    
                         else:
                             former_child_data['tree_parent'] = -1
                             orphans_Q.append(former_child) 
@@ -253,35 +265,34 @@ class ESAlgo(DynAlgo):
 
                             if not perf_mode:
                                 curr_updates['es_tree']['nodes'].append((former_child,'MOD'))
-                    curr_Q_node_data['children'] = set() 
-                    
                     if not perf_mode:
                         self.refresh_update_dict(curr_updates)
-                        print("A FORMER CHILD IS NOW ORPHANED:", former_child)
                         yield(curr_updates, False)
                         curr_updates = self.get_new_update_dict()
+                    curr_Q_node_data['children'] = set() 
+                    
                               
 
                     if len(curr_Q_node_data['parents']) > 0:
                         curr_Q_node_data['tree_parent'] = curr_Q_node_data['parents'].pop()
                         curr_Q_node_data['parents'].add(curr_Q_node_data['tree_parent']) 
-                        self.es_graph.edges[(curr_Q_node_data['tree_parent'],curr_Q_node)]['is_tree_edge'] = True
-                        
+                        self.es_graph.edges[(curr_Q_node_data['tree_parent'],curr_Q_node)]['is_tree_edge'] = True                    
+                        curr_updates['es_tree']['edges'].append(((curr_Q_node_data['tree_parent'],curr_Q_node),'MOD'))
                         if not perf_mode:
+                            print("FINISHED AN ITERATION IN THE Q")
+                            self.refresh_update_dict(curr_updates)
+                            yield(curr_updates, False)
+                            curr_updates = self.get_new_update_dict()
                             self.orphans.remove(curr_Q_node)
-                            curr_updates['es_tree']['edges'].append(((curr_Q_node_data['tree_parent'],curr_Q_node),'MOD'))
-
+                            curr_Q_node_data.pop("curr_orphan")
+                            curr_updates['es_tree']['nodes'].append((curr_Q_node,'MOD'))
                     else:
                         orphans_Q.append(curr_Q_node)
                         print("CURR_ORPHAN_STILL_ORPHANED:", curr_Q_node, orphans_Q)
-
-
-
-                    if not perf_mode:
-                        print("FINISHED AN ITERATION IN THE Q")
-                        yield(curr_updates, False)
-                        curr_Q_node_data.pop("curr_orphan")
-                        curr_updates['es_tree']['nodes'].append((curr_Q_node,'MOD'))
+                        if not perf_mode:
+                            self.refresh_update_dict(curr_updates)
+                            yield(curr_updates, False)
+                            curr_updates = self.get_new_update_dict()
 
                 if not perf_mode:
                     v_data.pop('original_orphan')
@@ -359,16 +370,12 @@ class ESVis(DynVis):
         for node in nx_graph.nodes:
             nx_positions[node][1] = -nx_positions[node][1]
             nx_graph.nodes[node]['pos'] = nx_positions[node].tolist()
-
-    
-    
-
+  
     def lvl_awr_refresh_graphtrace_pos(self, key:str): 
         if(len(self.algo_nx.orphans) > 0):
             assert key == 'es_tree' 
             nx_graph = self.algo_nx.all_graphs[key] 
             
-            orphans_levels = set([nx_graph.nodes[orphan]['level'] for orphan in self.algo_nx.orphans])
             shadow_edges = []
             for orphan in self.algo_nx.orphans: 
                 orphan_level = nx_graph.nodes[orphan]['level'] 
@@ -378,43 +385,53 @@ class ESVis(DynVis):
                 shadow_parent = min(candidate_shadow_parents,key=lambda x: abs(nx_graph.nodes[x]['pos'][0] - orphan_x)) 
                 if (shadow_parent,orphan) not in nx_graph.edges:
                     shadow_edges.append((shadow_parent,orphan))
-            
-            for shadow_edge in shadow_edges:
-                nx_graph.add_edge(*shadow_edge) 
-                nx_graph.edges[shadow_edge]['SHADOW'] = True
+            if len(shadow_edges) > 0:
+                for shadow_edge in shadow_edges:
+                    nx_graph.add_edge(*shadow_edge) 
+                    nx_graph.edges[shadow_edge]['SHADOW'] = True
 
-            # nx_positions = nx.bfs_layout(nx_graph, self.algo_nx.start_node, align='horizontal',)
-            
-            # for level in orphans_levels: 
-            #     for node in self.algo_nx.levels_to_nodes[level]:
-            #         nx_positions[node][1] = -nx_positions[node][1]
-            #         nx_graph.nodes[node]['pos'] = nx_positions[node].tolist() 
-            #         self.vis_update_nodetrace(key,node) 
-            #         for neighbor in nx_graph.neighbors(node):
-            #             if not 'SHADOW'in nx_graph.edges[(node,neighbor)]:
-            #                 u,v = min(node,neighbor), max(node,neighbor)
-            #                 self.vis_update_edgetrace(key,u,v)
+                alter_nodes = []
+                [alter_nodes.extend(edge) for edge in shadow_edges]
+                alter_nodes = set(alter_nodes)
+                nx_layout = nx.bfs_layout(nx_graph, self.algo_nx.start_node, align='horizontal')
+                root_x = nx_graph.nodes[self.algo_nx.start_node]['pos'][0]
+                for node in nx_graph.nodes:
+                    old_x = nx_graph.nodes[node]['pos'][0]
+                    nx_graph.nodes[node]["pos"][1] = -nx_layout[node][1]
+                    if node not in self.algo_nx.orphans:
+                        nx_graph.nodes[node]['pos'][0] = root_x + (nx_layout[node][0] - root_x)*(1-VIS_X_DRIFT_COEFF) + (old_x - root_x)*VIS_X_DRIFT_COEFF
+                    else:
+                        nx_graph.nodes[node]['pos'][0] = root_x + (nx_layout[node][0] - root_x)*(1-VIS_X_ORPH_COEFF) + (old_x - root_x)*VIS_X_ORPH_COEFF
 
-            self.default_init_nx_layout('es_tree') 
-            
-            for shadow_edge in shadow_edges:
-                nx_graph.remove_edge(*shadow_edge)
+                
+                    
+                    
+
+                    
+
+                u,v = shadow_edges[0]
+
+                delta_y = abs(nx_graph.nodes[v]['pos'][1] - nx_graph.nodes[u]['pos'][1])
+                
+
+                for node in nx_graph.nodes:
+                    y_orig = nx_graph.nodes[node]['pos'][1]
+                    y_new = y_orig + random.uniform(-VIS_Y_EPSILON,VIS_Y_EPSILON) * delta_y
+                    nx_graph.nodes[node]['pos'][1] = y_new 
+                
+                for shadow_edge in shadow_edges:
+                    nx_graph.remove_edge(*shadow_edge)
             
             for node in nx_graph.nodes:
                 self.vis_update_nodetrace(key,node)
-            for edge in nx_graph.edges:
-                    self.vis_update_edgetrace(key,*edge)
+
             
 
+            for edge in nx_graph.edges:
+                    self.vis_update_edgetrace(key,*edge)
 
 
-
-
-
-
-
-
-    # def lvl_awr_refresh_nx_layout(self, key:str):
+    
     #     assert key == 'es_tree'
     #     nx_graph = self.algo_nx.all_graphs[key]
     #     desired_levels_to_orphans = {}
@@ -452,6 +469,7 @@ class ESVis(DynVis):
         to_update = step_result[0]
         
         for key in to_update.keys():
+            nx_graph = self.algo_nx.all_graphs[key]
             to_update_subdict = to_update[key] 
 
             for(edge, opkeyword) in to_update_subdict['edges']:
@@ -473,6 +491,30 @@ class ESVis(DynVis):
                 elif opkeyword == 'MOD':
                     if(node in self.algo_nx.all_graphs[key].nodes):
                         node_data = self.algo_nx.all_graphs[key].nodes[node]
+                        if("curr_orphan" in node_data):
+                            curr_level = node_data['level'] 
+                            assert curr_level - 1 in self.algo_nx.levels_to_nodes 
+                            curr_x = node_data['pos'][0]
+
+                            shadow_parents = self.algo_nx.levels_to_nodes[curr_level - 1]
+                            shadow_delta_x_es = []
+                            for shadow_parent in shadow_parents:
+                                shadow_delta_x_es.append(abs(nx_graph.nodes[shadow_parent]['pos'][0] - curr_x ))
+                            shadow_parent = shadow_parents[shadow_delta_x_es.index(min(shadow_delta_x_es))] 
+                            shadow_y = nx_graph.nodes[shadow_parent]['pos'][1]
+                            delta_y = abs(shadow_y - node_data['pos'][1])
+                            shadow_edge = (shadow_parent,node) 
+                            if shadow_edge not in self.algo_nx.all_graphs[key].edges:
+                                self.algo_nx.all_graphs[key].add_edge(*shadow_edge)
+                                new_layout = nx.bfs_layout(self.algo_nx.all_graphs[key],self.algo_nx.start_node,align='horizontal')
+                                node_data['pos'][1] = -new_layout[node][1] + random.uniform(-VIS_Y_EPSILON,VIS_Y_EPSILON) * delta_y
+                                node_data['pos'][0] = new_layout[node][0] 
+                                self.vis_update_nodetrace(key,node) 
+                                self.algo_nx.all_graphs[key].remove_edge(*shadow_edge)
+                                for neighbor in self.algo_nx.all_graphs[key].neighbors(node):
+                                    self.vis_update_edgetrace(key,node,neighbor)
+
+                            
                         self.default_init_node_visdict(node,key)
                         self.vis_update_nodetrace(key,node)
 
