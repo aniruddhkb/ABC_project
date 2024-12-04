@@ -4,7 +4,7 @@ from collections import deque
 
 class BFSAlgo(StatAlgo):
 
-    def __init__(self, base_graph:nx.Graph, start_node_arg:int|list[int]):
+    def __init__(self, base_graph:nx.Graph, start_node_arg:int|list[int],max_level:int = None):
         super().__init__(base_graph)
         if isinstance(start_node_arg, list):
             self.multi = True
@@ -35,18 +35,20 @@ class BFSAlgo(StatAlgo):
                 self.bfs_graph.nodes[a_root]['tree_parent'] = -1
                 self.bfs_graph.nodes[a_root]['root'] = a_root 
         
+        self.max_level = max_level
 
         for edge in self.bfs_graph.edges:
             edge_data = self.bfs_graph.edges[edge]
             edge_data['is_tree_edge'] = False
 
+        self.bfs_safe_nodes = list(self.multi_roots)
         self.bfs_Q = deque(self.multi_roots) 
         while len(self.bfs_Q) > 0:
 
             curr_node = self.bfs_Q.popleft() 
             curr_node_data = self.bfs_graph.nodes[curr_node]
             curr_node_level = curr_node_data['level']
-
+            
             for neighbor_node in self.bfs_graph.neighbors(curr_node):
                 neighbor_node_data = self.bfs_graph.nodes[neighbor_node] 
 
@@ -67,7 +69,7 @@ class BFSAlgo(StatAlgo):
                     else:
                         raise ValueError(f'Inconsistent levels for nodes {curr_node} and {neighbor_node}')
                     
-                else: 
+                elif (curr_node_level + 1 <= self.max_level and self.max_level is not None) or self.max_level is None: 
                     self.bfs_Q.append(neighbor_node) 
                     curr_node_data['children'].add(neighbor_node)
                     self.bfs_graph.edges[(curr_node, neighbor_node)]['is_tree_edge'] = True 
@@ -77,6 +79,11 @@ class BFSAlgo(StatAlgo):
                     neighbor_node_data['tree_parent'] = curr_node
                     neighbor_node_data['parents'].add(curr_node)
                     neighbor_node_data['root'] = curr_node_data['root']
+                    self.bfs_safe_nodes.append(neighbor_node)
+        nodescpy = list(self.bfs_graph.nodes)
+        for node in nodescpy:
+            if node not in self.bfs_safe_nodes:
+                self.bfs_graph.remove_node(node)
                     
     
     def path_to_source(self, start_node:int):
@@ -179,9 +186,9 @@ if __name__ == "__main__":
         (7, 8)
     ])
 
-    # base_graph = nx.random_geometric_graph(60,0.15)
+    base_graph = nx.random_geometric_graph(60,0.15)
     # base_graph = base_graph.subgraph(nx.node_connected_component(base_graph,0)) 
-    bfs_algo = BFSAlgo(base_graph, [0,3])
+    bfs_algo = BFSAlgo(base_graph, [0,1],3)
     fig = new_default_fig()
     fig.update_layout(hoverlabel=dict(font_size=18))
     fig.update_layout(width=1500,height=900)
