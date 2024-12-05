@@ -1,12 +1,17 @@
+'''
+Supports multiple roots, depth limit, and restricting node set.
+'''
+
+from typing import Iterable
 from graphfig import * 
 import networkx as nx
 from collections import deque
 
 class BFSAlgo(StatAlgo):
 
-    def __init__(self, base_graph:nx.Graph, start_node_arg:int|list[int],max_level:int = None):
+    def __init__(self, base_graph:nx.Graph, start_node_arg:int|list[int],max_level:int = None, allowed_node_set:None|set = None):
         super().__init__(base_graph)
-        if isinstance(start_node_arg, list):
+        if isinstance(start_node_arg, Iterable):
             self.multi = True
             self.multi_roots = start_node_arg
             assert all([node in base_graph.nodes for node in self.multi_roots])
@@ -14,10 +19,13 @@ class BFSAlgo(StatAlgo):
             self.multi = False
             assert start_node_arg in base_graph.nodes
             self.multi_roots = (start_node_arg,)
+        self.allowed_node_set = allowed_node_set
+        
+        if self.allowed_node_set is not None:
+            assert all([node in self.allowed_node_set for node in self.multi_roots])
         
         self.bfs_graph = self.base_graph.copy()
         self.all_graphs['bfs_tree'] = self.bfs_graph
-        a_root = None 
         for node in self.bfs_graph.nodes:
             node_data = self.bfs_graph.nodes[node]
             node_data.update({
@@ -41,7 +49,7 @@ class BFSAlgo(StatAlgo):
             edge_data = self.bfs_graph.edges[edge]
             edge_data['is_tree_edge'] = False
 
-        self.bfs_safe_nodes = list(self.multi_roots)
+        self.bfs_safe_nodes = set(self.multi_roots)
         self.bfs_Q = deque(self.multi_roots) 
         while len(self.bfs_Q) > 0:
 
@@ -69,7 +77,9 @@ class BFSAlgo(StatAlgo):
                     else:
                         raise ValueError(f'Inconsistent levels for nodes {curr_node} and {neighbor_node}')
                     
-                elif (curr_node_level + 1 <= self.max_level and self.max_level is not None) or self.max_level is None: 
+                elif all([(curr_node_level + 1 <= self.max_level and self.max_level is not None) or self.max_level is None,
+                          self.allowed_node_set is None or neighbor_node in self.allowed_node_set
+                          ]): 
                     self.bfs_Q.append(neighbor_node) 
                     curr_node_data['children'].add(neighbor_node)
                     self.bfs_graph.edges[(curr_node, neighbor_node)]['is_tree_edge'] = True 
@@ -79,12 +89,12 @@ class BFSAlgo(StatAlgo):
                     neighbor_node_data['tree_parent'] = curr_node
                     neighbor_node_data['parents'].add(curr_node)
                     neighbor_node_data['root'] = curr_node_data['root']
-                    self.bfs_safe_nodes.append(neighbor_node)
+                    self.bfs_safe_nodes.add(neighbor_node)
+        
         nodescpy = list(self.bfs_graph.nodes)
         for node in nodescpy:
             if node not in self.bfs_safe_nodes:
                 self.bfs_graph.remove_node(node)
-                    
     
     def path_to_source(self, start_node:int):
         curr_node = start_node
@@ -97,7 +107,7 @@ class BFSAlgo(StatAlgo):
 
 class BFSVis(StatVis):
 
-    def __init__(self, algo:BFSAlgo,fig:dict[str:go.Figure]):
+    def __init__(self, algo:BFSAlgo,fig:go.Figure):
         figs_dict = {"bfs_tree":fig}
         super().__init__(algo,figs_dict) 
         
@@ -186,7 +196,7 @@ if __name__ == "__main__":
         (7, 8)
     ])
 
-    base_graph = nx.random_geometric_graph(60,0.15)
+    base_graph = nx.random_geometric_graph(30,0.3)
     # base_graph = base_graph.subgraph(nx.node_connected_component(base_graph,0)) 
     bfs_algo = BFSAlgo(base_graph, [0,1],3)
     fig = new_default_fig()

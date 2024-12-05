@@ -5,7 +5,6 @@ import networkx as nx
 from dash import Dash, html, dcc, Input, Output, callback, Patch
 import plotly.graph_objects as go 
 from typing import Type
-from pprint import pprint
 
 DEFAULT_TEXT_SIZE = 24
 DEFAULT_NODE_SIZE = 10

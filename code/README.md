@@ -1,3 +1,11 @@
+Demo for dynamic graph algorithms (Current goal: Roditty & Zwick's Dynamic APSP Algorithm)
+
+----
+
+In graphfig:
+
+(What do you need to do to concretize these classes? Read below.)
+
 StatAlgo:
 
     Does nothing except create vars. Subclass for more. Suitable for BFS etc.

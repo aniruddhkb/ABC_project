@@ -1,10 +1,17 @@
+'''
+Implements the Even Shiloach edge-decremental single-source-shortest-path tree.
+
+TODO: Convert to multi-source (But not all-pairs) version. Analogous to multi-source BFS.
+
+Just have to make a few modifications.
+'''
+
 from graphfig import * 
 from bfs import *
 import networkx as nx
 from collections import deque
 import random 
 random.seed(31415)
-
 
 DEFAULT_TEXT_SIZE = 24
 DEFAULT_NODE_SIZE = 20
@@ -15,7 +22,6 @@ DEFAULT_TREE_EDGE_COLOR = '#AA0000'
 
 DEFAULT_FIG_SIZE = (1280,600)
 
-
 DEFAULT_NODE_COLOR = DEFAULT_EDGE_COLOR
 ROOT_NODE_COLOR = DEFAULT_NODE_COLOR
 OG_ORPHAN_COLOR = 'red'
@@ -23,16 +29,20 @@ ORPHAN_NODE_COLOR = 'blue'
 CURR_ORPHAN_COLOR = 'green'
 NEIGHBORS_COLOR = 'blue'
 
-VIS_Y_EPSILON = 0.2
+VIS_Y_EPSILON = 0.1
 VIS_X_ORPH_COEFF = 0.1
 VIS_X_DRIFT_COEFF = 0.8
+
 class ESAlgo(DynAlgo):
 
     def __init__(self, base_graph:nx.Graph, start_node:int):
+
         assert start_node in base_graph.nodes 
         super().__init__(base_graph)
+
         self.es_graph = self.base_graph
         self.start_node = start_node
+
         self.all_graphs['es_tree'] = self.es_graph
         for node in self.es_graph.nodes:
             node_data = self.es_graph.nodes[node]
@@ -96,7 +106,7 @@ class ESAlgo(DynAlgo):
                     curr_node_data['children'].add(neighbor_node)
                     neighbor_node_data['tree_parent'] = curr_node
                     self.es_graph.edges[(curr_node, neighbor_node)]['is_tree_edge'] = True 
-    
+        
     def path_to_source(self, node:int):
         path = [node]
         while self.es_graph.nodes[node]['tree_parent'] != -1:
@@ -322,6 +332,7 @@ class ESVis(DynVis):
             f"F: {node_data['friends']   if len(node_data['friends']) > 0 else 'None'}",
             f"C: {node_data['children']  if len(node_data['children']) > 0 else 'None'}",
         ])
+
     def default_init_node_visdict(self, node: int, key: str):     
         
         assert key == 'es_tree'
@@ -403,16 +414,9 @@ class ESVis(DynVis):
                     else:
                         nx_graph.nodes[node]['pos'][0] = root_x + (nx_layout[node][0] - root_x)*(1-VIS_X_ORPH_COEFF) + (old_x - root_x)*VIS_X_ORPH_COEFF
 
-                
-                    
-                    
-
-                    
-
                 u,v = shadow_edges[0]
 
-                delta_y = abs(nx_graph.nodes[v]['pos'][1] - nx_graph.nodes[u]['pos'][1])
-                
+                delta_y = abs(nx_graph.nodes[v]['pos'][1] - nx_graph.nodes[u]['pos'][1])              
 
                 for node in nx_graph.nodes:
                     y_orig = nx_graph.nodes[node]['pos'][1]
@@ -425,49 +429,16 @@ class ESVis(DynVis):
             for node in nx_graph.nodes:
                 self.vis_update_nodetrace(key,node)
 
-            
-
             for edge in nx_graph.edges:
                     self.vis_update_edgetrace(key,*edge)
-
-
-    
-    #     assert key == 'es_tree'
-    #     nx_graph = self.algo_nx.all_graphs[key]
-    #     desired_levels_to_orphans = {}
-    #     desired_levels_to_y = {}
-    #     orphan_nodes = []
-    #     for node in nx_graph.nodes:
-    #         node_data = nx_graph.nodes[node]
-    #         if(node_data['tree_parent'] == -1 and node_data['level'] != 0):
-    #             orphan_nodes.append(node)
-    #             if node_data['level'] not in desired_levels_to_orphans:
-    #                 desired_levels_to_orphans[node_data['level']] = []
-    #             desired_levels_to_orphans[node_data['level']].append(node) 
-            
-    #     for node in nx_graph.nodes:
-    #         node_data = nx_graph.nodes[node]
-        
-    #         if node not in orphan_nodes and node_data['level'] in desired_levels_to_orphans:
-    #             if node_data['level'] not in desired_levels_to_y:
-    #                 print('settled level', node_data['level'],', node', node)
-    #                 desired_levels_to_y[node_data['level']] = nx_graph.nodes[node]['pos'][1] 
-    #     for level in desired_levels_to_orphans:
-    #         level_orphans = desired_levels_to_orphans[level]
-    #         lvl_y = desired_levels_to_y[level]
-            
-    #         for orphan in level_orphans:
-    #             nx_graph.nodes[orphan]['pos'][1] = lvl_y
-        
-    #     print(desired_levels_to_orphans)
 
     def lvl_awr_vis_step_fn(self,all:bool=False):
         if all:
             step_result = self.algo_nx.step_all_remaining()
         else:
             step_result = self.algo_nx.step()
-        to_update = step_result[0]
         
+        to_update = step_result[0]
         for key in to_update.keys():
             nx_graph = self.algo_nx.all_graphs[key]
             to_update_subdict = to_update[key] 
@@ -521,58 +492,26 @@ class ESVis(DynVis):
         if(len(self.algo_nx.orphans) > 0):
             self.lvl_awr_refresh_graphtrace_pos('es_tree')
         
-        # self.vis_update_nodetrace(key,node)
-
-    
-        # self.lvl_awr_refresh_nx_layout('es_tree')
-        # for u in self.algo_nx.es_graph.nodes:
-            
-        #     if(self.traces_dict['es_tree'][str(u)]['y'] != self.algo_nx.es_graph.nodes[u]['pos'][1]):
-        #         self.vis_update_nodetrace('es_tree',u)
-        #         for v in self.algo_nx.es_graph.neighbors(u):
-
-        #             u1, v1 = min(u,v), max(u,v)
-        #             self.vis_update_edgetrace('es_tree',u1,v1)
+        if step_result[1]:
+            self.default_init_nx_layout('es_tree')
+            for node in self.algo_nx.all_graphs['es_tree'].nodes:
+                self.vis_update_nodetrace('es_tree',node)
+            for edge in self.algo_nx.all_graphs['es_tree'].edges:
+                self.vis_update_edgetrace('es_tree',edge[0],edge[1])
         return self.figs_dict['es_tree']
-            
-    
 
 if __name__ == "__main__": 
     
     base_graph = nx.circulant_graph(9,[1]*9)
-
-    # base_graph = nx.Graph() 
-    # base_graph.add_nodes_from(list(range(9))) 
-    # base_graph.add_edges_from([
-    #     (0, 1),
-    #     (0, 2),
-    #     (0, 3),
-    #     (1, 2),
-    #     (1, 4),
-    #     (1, 5),
-    #     (1, 6),
-    #     (1, 7),
-    #     (2, 6),
-    #     (2, 7),
-    #     (3, 6),
-    #     (3, 7),
-    #     (4, 5),
-    #     (4, 8),
-    #     (5, 8),
-    #     (6, 8),
-    #     (7, 8)
-    # ])
-
-    # base_graph = nx.random_geometric_graph(60,0.15)
-    # base_graph = base_graph.subgraph(nx.node_connected_component(base_graph,0)) 
 
     fig = new_default_fig()
     fig.update_layout(hoverlabel=dict(font_size=18))
     fig.update_layout(width=1500,height=900)
     es_vis = ESVis(ESAlgo(base_graph, 0),fig)
     es_vis.vis_init_all()
-    # fig.show()
+
     app = Dash(__name__)
+
     @app.callback(
             Output('es_fig', 'figure',True),
             Input('step_button', 'n_clicks'),
