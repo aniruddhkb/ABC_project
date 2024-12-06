@@ -80,7 +80,8 @@ class BFSAlgo(StatAlgo):
                 elif all([(curr_node_level + 1 <= self.max_level and self.max_level is not None) or self.max_level is None,
                           self.allowed_node_set is None or neighbor_node in self.allowed_node_set
                           ]): 
-                    self.bfs_Q.append(neighbor_node) 
+                    self.bfs_Q.append(neighbor_node)
+
                     curr_node_data['children'].add(neighbor_node)
                     self.bfs_graph.edges[(curr_node, neighbor_node)]['is_tree_edge'] = True 
                     
@@ -91,10 +92,9 @@ class BFSAlgo(StatAlgo):
                     neighbor_node_data['root'] = curr_node_data['root']
                     self.bfs_safe_nodes.add(neighbor_node)
         
-        nodescpy = list(self.bfs_graph.nodes)
-        for node in nodescpy:
-            if node not in self.bfs_safe_nodes:
-                self.bfs_graph.remove_node(node)
+        self.bfs_graph = self.bfs_graph.subgraph(self.bfs_safe_nodes).copy()
+
+        
     
     def path_to_source(self, start_node:int):
         curr_node = start_node

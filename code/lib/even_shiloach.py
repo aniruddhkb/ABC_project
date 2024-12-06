@@ -317,7 +317,6 @@ class ESAlgo(DynAlgo):
             yield(None, True)
             return 
 
-
 class ESVis(DynVis):
 
     def __init__(self, algo:ESAlgo,fig:go.Figure):
@@ -552,8 +551,6 @@ if __name__ == "__main__":
         es_vis.__init__(ESAlgo(base_graph,0),fig)
         es_vis.vis_init_all()
         return es_vis.figs_dict['es_tree']
-
-
 
     app.layout = html.Div([
         html.Button('Next Step', id='step_button', n_clicks=None),
