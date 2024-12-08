@@ -60,6 +60,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
         nodes_del_Q = deque([node,]) 
         while len(nodes_del_Q) > 0:
             curr_node = nodes_del_Q.pop()
+            self.shifted.append(curr_node)
             curr_node_level = self.es_graph.nodes[curr_node]['level'] 
             self.levels_to_nodes[curr_node_level].remove(curr_node)
             if(len(self.levels_to_nodes[curr_node_level]) == 0):
@@ -77,6 +78,9 @@ class ESAlgov2(BFSAlgo,DynAlgo):
             self.es_graph.remove_node(curr_node)
 
     def es_update_delete_edge(self, u:int, v:int, perf_mode:bool=False):     
+        
+        self.shifted = list()
+
         self.orphans = []
         assert self.es_graph.has_edge(u,v)
         self.es_graph.remove_edge(u,v)
@@ -129,19 +133,19 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                     self.orphans.append(v)
                     v_data['original_orphan'] = True
                     self.refresh_update_dict(curr_updates)
-                    print("STARTING ORPHANS Q FOR", v)
+                    #print("STARTING ORPHANS Q FOR", v)
                     yield(curr_updates, False)
                     curr_updates = self.get_new_update_dict()
                 
                 while len(orphans_Q) > 0:  
                     curr_Q_node = orphans_Q.popleft()   
+                    self.shifted.append(curr_Q_node)
                     curr_Q_node_data = self.es_graph.nodes[curr_Q_node]
                     curr_Q_node_data['curr_orphan'] = True
-                    print("POPPED FROM Q:", curr_Q_node)
-                    print(curr_Q_node_data)
-
+                    #print("POPPED FROM Q:", curr_Q_node)
+                    #print(curr_Q_node_data)
                     if curr_Q_node_data['level'] == self.max_level:
-                        print("DELETING CURR Q NODE:", curr_Q_node)
+                        #print("DELETING CURR Q NODE:", curr_Q_node)
                         for friend in self.es_graph.nodes[curr_Q_node]['friends']:
                             self.es_graph.nodes[friend]['friends'].remove(curr_Q_node)
                             self.es_graph.remove_edge(curr_Q_node,friend)
@@ -181,7 +185,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                         # yield(curr_updates, False)
                         # curr_updates = self.get_new_update_dict()
                     
-                    print("POPPED FROM Q:", curr_Q_node)
+                    #print("POPPED FROM Q:", curr_Q_node)
                     
                     # DISCONNECTION CONDITION 2
                     if(len(self.levels_to_nodes[curr_Q_node_data['level'] - 1]) == 0):
@@ -190,7 +194,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                         if not perf_mode:
                             self.es_delete_subgraph(curr_Q_node, curr_updates)
                             self.refresh_update_dict(curr_updates)
-                            print("A NODE WENT BELOW THE LINE:", curr_Q_node)
+                            #print("A NODE WENT BELOW THE LINE:", curr_Q_node)
                             yield(curr_updates, True)
                             return
                         else:
@@ -253,7 +257,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
 
                         self.es_graph.edges[(curr_Q_node_data['tree_parent'],curr_Q_node)]['is_tree_edge'] = True                    
                         if not perf_mode:
-                            print("FINISHED AN ITERATION IN THE Q")
+                            #print("FINISHED AN ITERATION IN THE Q")
                             curr_updates['es_tree']['edges'].append(((curr_Q_node_data['tree_parent'],curr_Q_node),'MOD'))
                             curr_updates['es_tree']['nodes'].append((curr_Q_node,'MOD'))
                             self.refresh_update_dict(curr_updates)
@@ -263,7 +267,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                             curr_Q_node_data.pop("curr_orphan")
                     else:
                         orphans_Q.append(curr_Q_node)
-                        print("CURR_ORPHAN_STILL_ORPHANED:", curr_Q_node, orphans_Q)
+                        #print("CURR_ORPHAN_STILL_ORPHANED:", curr_Q_node, orphans_Q)
                         if not perf_mode:
                             self.refresh_update_dict(curr_updates)
                             yield(curr_updates, False)
@@ -271,9 +275,9 @@ class ESAlgov2(BFSAlgo,DynAlgo):
 
                 if not perf_mode:
                     v_data.pop('original_orphan')
-                    print("FINISHED ORPHAN Q")
-        print("FINISHED DELETION")
-        print("CURRENT NODES:", self.es_graph.nodes)
+                    #print("FINISHED ORPHAN Q")
+        #print("FINISHED DELETION")
+        #print("CURRENT NODES:", self.es_graph.nodes)
         if not perf_mode:
             for node in self.es_graph.nodes:
                 curr_updates['es_tree']['nodes'].append((node,'MOD'))
@@ -286,7 +290,15 @@ class ESAlgov2(BFSAlgo,DynAlgo):
         else:
             yield(None, True)
             return 
- 
+    
+    def get_level(self,node:int)->int:
+        assert node in self.es_graph.nodes
+        return self.es_graph.nodes[node]['level']
+    
+    def get_root(self,node:int)->int:
+        assert node in self.es_graph.nodes
+        return self.es_graph.nodes[node]['root']
+    
 class ESVisv2(BFSVis,DynVis):
 
     def __init__(self, algo:ESAlgov2,fig:go.Figure):
@@ -468,10 +480,10 @@ if __name__ == "__main__":
     # main_graph.add_edge(0,1)
     # main_graph.add_edge(1,2)
 
-    es_algo = ESAlgov2(main_graph, (0,8),5) 
+    es_algo = ESAlgov2(main_graph, (7,6),5) 
     es_algo.assign_generator(lambda: es_algo.es_update_delete_edge(0,1,True),)
     next(es_algo.update_genner)
-    print(es_algo.es_graph.nodes)
+    #print(es_algo.es_graph.nodes)
     fig = default_new_fig()
     es_vis = ESVisv2(es_algo,fig)
     es_vis.vis_init_all()

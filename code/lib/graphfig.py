@@ -20,7 +20,7 @@ class StatAlgo():
     def __init__(self, base_graph:nx.Graph,copy=True):
         try:
             assert self.initted #This is for the 'diamond problem' in multiple inheritance
-            print("Initted already.")
+            # print("Initted already.")
         
         except AttributeError:
             self.initted = True
