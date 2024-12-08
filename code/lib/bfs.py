@@ -237,15 +237,15 @@ if __name__ == "__main__":
     # base_graph = base_graph.subgraph(nx.node_connected_component(base_graph,0)) 
     # bfs_algo = BFSAlgo(main_graph, 0)
     bfs_algo = BFSAlgo(main_graph, 0,3)
-    spanner_fig = default_new_fig()
-    spanner_fig.update_layout(hoverlabel=dict(font_size=18))
-    spanner_fig.update_layout(width=1500,height=900)
-    es_vis = BFSVis(bfs_algo,spanner_fig)
+    fig = default_new_fig()
+    fig.update_layout(hoverlabel=dict(font_size=18))
+    fig.update_layout(width=1500,height=900)
+    es_vis = BFSVis(bfs_algo,fig)
     es_vis.vis_init_all()
 
     app = Dash(__name__)
 
     app.layout = html.Div([
-        dcc.Graph(figure=spanner_fig)
+        dcc.Graph(figure=fig)
     ])
     app.run_server(debug=True)

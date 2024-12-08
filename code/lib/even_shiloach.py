@@ -120,6 +120,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
             else:    
                 v_data['tree_parent'] = -1
                 v_data['root'] = -1 
+                
                 orphans_Q = deque([v,])
                 
 
@@ -132,9 +133,34 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                     yield(curr_updates, False)
                     curr_updates = self.get_new_update_dict()
                 
-                while len(orphans_Q) > 0:    
-                    curr_Q_node = orphans_Q.popleft() 
+                while len(orphans_Q) > 0:  
+                    curr_Q_node = orphans_Q.popleft()   
                     curr_Q_node_data = self.es_graph.nodes[curr_Q_node]
+                    curr_Q_node_data['curr_orphan'] = True
+                    print("POPPED FROM Q:", curr_Q_node)
+                    print(curr_Q_node_data)
+
+                    if curr_Q_node_data['level'] == self.max_level:
+                        print("DELETING CURR Q NODE:", curr_Q_node)
+                        for friend in self.es_graph.nodes[curr_Q_node]['friends']:
+                            self.es_graph.nodes[friend]['friends'].remove(curr_Q_node)
+                            self.es_graph.remove_edge(curr_Q_node,friend)
+                            if not perf_mode:
+                                curr_updates['es_tree']['edges'].append(((curr_Q_node,friend),'DEL'))
+                        
+                        self.levels_to_nodes[curr_Q_node_data['level']].remove(curr_Q_node)
+                        self.orphans.remove(curr_Q_node)
+                        self.es_graph.remove_node(curr_Q_node)
+                        if not perf_mode:
+                                curr_updates['es_tree']['nodes'].append((curr_Q_node,'DEL'))
+                        self.refresh_update_dict(curr_updates)
+                        yield(curr_updates, False)
+                        curr_updates = self.get_new_update_dict()
+                        continue
+
+                            
+
+
                     if not perf_mode:
                         curr_updates['es_tree']['nodes'].append((curr_Q_node,'MOD'))
                         curr_Q_node_data["curr_orphan"] = True 
@@ -144,6 +170,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
 
                     self.levels_to_nodes[curr_Q_node_data['level']].remove(curr_Q_node)
                     curr_Q_node_data['level'] += 1 
+
                     if curr_Q_node_data['level'] not in self.levels_to_nodes:
                         self.levels_to_nodes[curr_Q_node_data['level']] = [] 
                     self.levels_to_nodes[curr_Q_node_data['level']].append(curr_Q_node)
@@ -156,7 +183,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                     
                     print("POPPED FROM Q:", curr_Q_node)
                     
-                    # DISCONNECTION CONDITION
+                    # DISCONNECTION CONDITION 2
                     if(len(self.levels_to_nodes[curr_Q_node_data['level'] - 1]) == 0):
                         self.levels_to_nodes.pop(curr_Q_node_data['level'] - 1)
                     
@@ -170,7 +197,6 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                             self.es_delete_subgraph(curr_Q_node, None)
                             yield(None, True)
                             return
-
 
                     curr_Q_node_data['parents'] = curr_Q_node_data['friends'].copy()
 
@@ -435,16 +461,16 @@ class ESVisv2(BFSVis,DynVis):
 
 if __name__ == "__main__": 
     
+    main_graph = nx.circulant_graph(9,[1]*9)
+    # main_graph = get_connected_gnp_graph(50,25,0.1)
     
-    main_graph = get_connected_gnp_graph(50,25,0.1)
-    
-    main_graph.add_edge(0,1)
-    main_graph.add_edge(1,2)
+    # main_graph.add_edge(0,1)
+    # main_graph.add_edge(1,2)
 
-    spanner_fig = default_new_fig()
-    spanner_fig.update_layout(hoverlabel=dict(font_size=18))
-    spanner_fig.update_layout(width=1500,height=900)
-    es_vis = ESVisv2(ESAlgov2(main_graph, [0,1]),spanner_fig)
+    fig = default_new_fig()
+    fig.update_layout(hoverlabel=dict(font_size=18))
+    fig.update_layout(width=1500,height=900)
+    es_vis = ESVisv2(ESAlgov2(main_graph, 0,6),fig)
     es_vis.vis_init_all()
     
 
@@ -465,7 +491,7 @@ if __name__ == "__main__":
         
         if n_clicks is not None:
             if es_vis.algo_nx.update_genner is None:
-                es_vis.algo_nx.assign_generator(lambda: es_vis.algo_nx.es_update_delete_edge(2,1))
+                es_vis.algo_nx.assign_generator(lambda: es_vis.algo_nx.es_update_delete_edge(0,1))
             es_vis.lvl_awr_vis_step_fn()
             
         return es_vis.figs_dict['es_tree']
@@ -492,8 +518,8 @@ if __name__ == "__main__":
         allow_duplicate=True
         )
     def nx_reset_callback(n_clicks):
-        spanner_fig.data = []
-        es_vis.__init__(ESAlgov2(main_graph,0),spanner_fig)
+        fig.data = []
+        es_vis.__init__(ESAlgov2(main_graph, 0,6),fig)
         es_vis.vis_init_all()
         return es_vis.figs_dict['es_tree']
 
@@ -501,6 +527,6 @@ if __name__ == "__main__":
         html.Button('Next Step', id='step_button', n_clicks=None),
         html.Button('Redraw Tree', id='redraw_button', n_clicks=None),
         html.Button('Reset Graph', id='nx_reset_button', n_clicks=None),
-        dcc.Graph(figure=spanner_fig, id = 'es_fig'),
+        dcc.Graph(figure=fig, id = 'es_fig'),
     ])
     app.run_server(debug=True)
