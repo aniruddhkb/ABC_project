@@ -77,7 +77,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
             self.es_graph.remove_node(curr_node)
 
     def es_update_delete_edge(self, u:int, v:int, perf_mode:bool=False):     
-
+        self.orphans = []
         assert self.es_graph.has_edge(u,v)
         self.es_graph.remove_edge(u,v)
         u_data = self.es_graph.nodes[u] 
@@ -147,15 +147,15 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                             self.es_graph.remove_edge(curr_Q_node,friend)
                             if not perf_mode:
                                 curr_updates['es_tree']['edges'].append(((curr_Q_node,friend),'DEL'))
+                                self.orphans.remove(curr_Q_node)
                         
                         self.levels_to_nodes[curr_Q_node_data['level']].remove(curr_Q_node)
-                        self.orphans.remove(curr_Q_node)
                         self.es_graph.remove_node(curr_Q_node)
                         if not perf_mode:
-                                curr_updates['es_tree']['nodes'].append((curr_Q_node,'DEL'))
-                        self.refresh_update_dict(curr_updates)
-                        yield(curr_updates, False)
-                        curr_updates = self.get_new_update_dict()
+                            curr_updates['es_tree']['nodes'].append((curr_Q_node,'DEL'))
+                            self.refresh_update_dict(curr_updates)
+                            yield(curr_updates, False)
+                            curr_updates = self.get_new_update_dict()
                         continue
 
                             
@@ -252,9 +252,9 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                         curr_Q_node_data['root']=self.es_graph.nodes[curr_Q_node_data['tree_parent']]['root']
 
                         self.es_graph.edges[(curr_Q_node_data['tree_parent'],curr_Q_node)]['is_tree_edge'] = True                    
-                        curr_updates['es_tree']['edges'].append(((curr_Q_node_data['tree_parent'],curr_Q_node),'MOD'))
                         if not perf_mode:
                             print("FINISHED AN ITERATION IN THE Q")
+                            curr_updates['es_tree']['edges'].append(((curr_Q_node_data['tree_parent'],curr_Q_node),'MOD'))
                             curr_updates['es_tree']['nodes'].append((curr_Q_node,'MOD'))
                             self.refresh_update_dict(curr_updates)
                             yield(curr_updates, False)
@@ -272,7 +272,8 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                 if not perf_mode:
                     v_data.pop('original_orphan')
                     print("FINISHED ORPHAN Q")
-
+        print("FINISHED DELETION")
+        print("CURRENT NODES:", self.es_graph.nodes)
         if not perf_mode:
             for node in self.es_graph.nodes:
                 curr_updates['es_tree']['nodes'].append((node,'MOD'))
@@ -467,11 +468,21 @@ if __name__ == "__main__":
     # main_graph.add_edge(0,1)
     # main_graph.add_edge(1,2)
 
+    es_algo = ESAlgov2(main_graph, (0,8),5) 
+    es_algo.assign_generator(lambda: es_algo.es_update_delete_edge(0,1,True),)
+    next(es_algo.update_genner)
+    print(es_algo.es_graph.nodes)
     fig = default_new_fig()
-    fig.update_layout(hoverlabel=dict(font_size=18))
-    fig.update_layout(width=1500,height=900)
-    es_vis = ESVisv2(ESAlgov2(main_graph, 0,6),fig)
+    es_vis = ESVisv2(es_algo,fig)
     es_vis.vis_init_all()
+    fig.show()
+    # fig.update_layout(hoverlabel=dict(font_size=18))
+    # fig.update_layout(width=1500,height=900)
+
+
+
+    # es_vis = ESVisv2(ESAlgov2(main_graph, 0,6),fig)
+    # es_vis.vis_init_all()
     
 
     
@@ -480,53 +491,53 @@ if __name__ == "__main__":
     
             
 
-    app = Dash(__name__)
+    # app = Dash(__name__)
 
-    @app.callback(
-            Output('es_fig', 'figure',True),
-            Input('step_button', 'n_clicks'),
-            prevent_initial_call=True,
-        )
-    def incremental_step_callback(n_clicks):
+    # @app.callback(
+    #         Output('es_fig', 'figure',True),
+    #         Input('step_button', 'n_clicks'),
+    #         prevent_initial_call=True,
+    #     )
+    # def incremental_step_callback(n_clicks):
         
-        if n_clicks is not None:
-            if es_vis.algo_nx.update_genner is None:
-                es_vis.algo_nx.assign_generator(lambda: es_vis.algo_nx.es_update_delete_edge(0,1))
-            es_vis.lvl_awr_vis_step_fn()
+    #     if n_clicks is not None:
+    #         if es_vis.algo_nx.update_genner is None:
+    #             es_vis.algo_nx.assign_generator(lambda: es_vis.algo_nx.es_update_delete_edge(0,1))
+    #         es_vis.lvl_awr_vis_step_fn()
             
-        return es_vis.figs_dict['es_tree']
+    #     return es_vis.figs_dict['es_tree']
 
-    @app.callback(
-        Output('es_fig', 'figure',True),
-        Input('redraw_button', 'n_clicks'),
-        prevent_initial_call=True,
-        allow_duplicate=True
-        )
-    def redraw_callback(n_clicks):
-        es_vis.default_init_nx_layout('es_tree')
+    # @app.callback(
+    #     Output('es_fig', 'figure',True),
+    #     Input('redraw_button', 'n_clicks'),
+    #     prevent_initial_call=True,
+    #     allow_duplicate=True
+    #     )
+    # def redraw_callback(n_clicks):
+    #     es_vis.default_init_nx_layout('es_tree')
         
-        for node in es_vis.algo_nx.es_graph.nodes:
-            es_vis.vis_update_nodetrace('es_tree',node)
-        for edge in es_vis.algo_nx.es_graph.edges:
-            es_vis.vis_update_edgetrace('es_tree',edge[0],edge[1])
-        return es_vis.figs_dict['es_tree']
+    #     for node in es_vis.algo_nx.es_graph.nodes:
+    #         es_vis.vis_update_nodetrace('es_tree',node)
+    #     for edge in es_vis.algo_nx.es_graph.edges:
+    #         es_vis.vis_update_edgetrace('es_tree',edge[0],edge[1])
+    #     return es_vis.figs_dict['es_tree']
 
-    @app.callback(
-        Output('es_fig', 'figure',True),
-        Input('nx_reset_button', 'n_clicks'),
-        prevent_initial_call=True,
-        allow_duplicate=True
-        )
-    def nx_reset_callback(n_clicks):
-        fig.data = []
-        es_vis.__init__(ESAlgov2(main_graph, 0,6),fig)
-        es_vis.vis_init_all()
-        return es_vis.figs_dict['es_tree']
+    # @app.callback(
+    #     Output('es_fig', 'figure',True),
+    #     Input('nx_reset_button', 'n_clicks'),
+    #     prevent_initial_call=True,
+    #     allow_duplicate=True
+    #     )
+    # def nx_reset_callback(n_clicks):
+    #     fig.data = []
+    #     es_vis.__init__(ESAlgov2(main_graph, 0,6),fig)
+    #     es_vis.vis_init_all()
+    #     return es_vis.figs_dict['es_tree']
 
-    app.layout = html.Div([
-        html.Button('Next Step', id='step_button', n_clicks=None),
-        html.Button('Redraw Tree', id='redraw_button', n_clicks=None),
-        html.Button('Reset Graph', id='nx_reset_button', n_clicks=None),
-        dcc.Graph(figure=fig, id = 'es_fig'),
-    ])
-    app.run_server(debug=True)
+    # app.layout = html.Div([
+    #     html.Button('Next Step', id='step_button', n_clicks=None),
+    #     html.Button('Redraw Tree', id='redraw_button', n_clicks=None),
+    #     html.Button('Reset Graph', id='nx_reset_button', n_clicks=None),
+    #     dcc.Graph(figure=fig, id = 'es_fig'),
+    # ])
+    # app.run_server(debug=True)
