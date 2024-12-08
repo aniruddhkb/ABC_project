@@ -501,12 +501,12 @@ class ESVis(DynVis):
 
 if __name__ == "__main__": 
     
-    base_graph = nx.circulant_graph(9,[1]*9)
+    main_graph = nx.circulant_graph(9,[1]*9)
 
-    fig = new_default_fig()
-    fig.update_layout(hoverlabel=dict(font_size=18))
-    fig.update_layout(width=1500,height=900)
-    es_vis = ESVis(ESAlgo(base_graph, 0),fig)
+    spanner_fig = default_new_fig()
+    spanner_fig.update_layout(hoverlabel=dict(font_size=18))
+    spanner_fig.update_layout(width=1500,height=900)
+    es_vis = ESVis(ESAlgo(main_graph, 0),spanner_fig)
     es_vis.vis_init_all()
 
     app = Dash(__name__)
@@ -547,8 +547,8 @@ if __name__ == "__main__":
         allow_duplicate=True
         )
     def nx_reset_callback(n_clicks):
-        fig.data = []
-        es_vis.__init__(ESAlgo(base_graph,0),fig)
+        spanner_fig.data = []
+        es_vis.__init__(ESAlgo(main_graph,0),spanner_fig)
         es_vis.vis_init_all()
         return es_vis.figs_dict['es_tree']
 
@@ -556,6 +556,6 @@ if __name__ == "__main__":
         html.Button('Next Step', id='step_button', n_clicks=None),
         html.Button('Redraw Tree', id='redraw_button', n_clicks=None),
         html.Button('Reset Graph', id='nx_reset_button', n_clicks=None),
-        dcc.Graph(figure=fig, id = 'es_fig'),
+        dcc.Graph(figure=spanner_fig, id = 'es_fig'),
     ])
     app.run_server(debug=True)

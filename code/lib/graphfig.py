@@ -5,6 +5,7 @@ import networkx as nx
 from dash import Dash, html, dcc, Input, Output, callback, Patch
 import plotly.graph_objects as go 
 from typing import Type
+from copy import deepcopy
 
 DEFAULT_TEXT_SIZE = 24
 DEFAULT_NODE_SIZE = 10
@@ -16,9 +17,12 @@ ALT_EDGE_COLOR = 'orange'
 DEFAULT_FIG_SIZE = (1366,768)
 
 class StatAlgo():
-    def __init__(self, base_graph:nx.Graph):
-        assert nx.number_of_selfloops(base_graph) == 0, 'Graph cannot have self loops'
-        self.base_graph = base_graph.copy()
+    def __init__(self, base_graph:nx.Graph,copy=True):
+        # assert nx.number_of_selfloops(base_graph) == 0, 'Graph cannot have self loops'
+        if(copy):
+            self.base_graph = deepcopy(base_graph)
+        else:
+            self.base_graph = base_graph
         self.all_graphs:dict[str,nx.Graph] = {}
         self.all_graphs['base'] = self.base_graph
         self.keys = self.all_graphs.keys()
@@ -497,7 +501,7 @@ class DynVis(StatVis):
                     self.vis_update_edgetrace(key,*edge)
         return self.figs_dict[key]
 
-def new_default_fig():
+def default_new_fig():
     fig = go.Figure(
         data=None,
         layout=go.Layout(
@@ -517,6 +521,23 @@ def new_default_fig():
     )
     return fig
 
+def get_connected_gnp_graph(n, lower_bound_n, p): 
+    pre_base_graph =  nx.fast_gnp_random_graph(n,p)
+    cc_nodes_lst = list(nx.connected_components(pre_base_graph))
+    cc_lens_lst = [len(i) for i in cc_nodes_lst]
+    idx = cc_lens_lst.index(max(cc_lens_lst)) 
+    base_graph = nx.induced_subgraph(pre_base_graph,cc_nodes_lst[idx]).copy()
+    try:
+        assert len(base_graph.nodes) > lower_bound_n
+    except AssertionError:
+        print(len(base_graph.nodes)) 
+        print([len(i) for i in nx.connected_components(pre_base_graph)])
+        raise AssertionError
+
+    return base_graph
+
+
+
 if __name__ == '__main__':
 
     PERF_MODE = True
@@ -533,7 +554,7 @@ if __name__ == '__main__':
 
         nx_graph = nx.Graph()
         figs_dict = {
-            'base':new_default_fig(),
+            'base':default_new_fig(),
         }
         es_vis = DynVis(DynAlgo(nx_graph), figs_dict)
         es_vis.vis_init_all()

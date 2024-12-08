@@ -26,23 +26,22 @@ from tqdm import tqdm
 sys.path.append('./lib') 
 
 import networkx as nx 
-from graphfig import * 
-from bfs import * 
+from lib.graphfig import * 
+from lib.bfs import * 
 def func_get_cluster(R:set[int],U:set[int],v:int,Y_s:set[set[int]],G:nx.Graph,r:int,beta:int|float):
     
     n = len(G.nodes)
-
-    G_notin_Y = G.copy()
-    if len(Y_s) > 0:
-            G_notin_Y.remove_nodes_from(list(set.union(*Y_s)))
+    if len(Y_s) == 0:
+        G_notin_Y = G.copy()
+    else:
+        G_notin_Y = nx.induced_subgraph(G,set(G.nodes)-set.union(*Y_s)).copy()
     
     ker_z = set([v,])
-    init_T_z_graph:nx.Graph = BFSAlgo.func_bfs(G_notin_Y,ker_z,r)
+    init_T_z_graph:nx.Graph = BFSAlgo.func_bfs(G,ker_z,r)
     
     z = set(init_T_z_graph.nodes)
     T_y_edges = set()
     cluster_iters = 0
-    T_z_graph__double = init_T_z_graph
     while True: 
         ker_y, y, T_y = ker_z.copy(), z.copy(), T_z_graph__double
         T_y_edges = T_y_edges.union(set(T_y.edges))
@@ -161,7 +160,7 @@ if __name__ == "__main__":
     beta = 1
     
     # a low beta prioritizes smaller but more numerous clusters. A high beta prioritizes larger but fewer clusters.
-    main_graph = get_connected_gnp_graph(1200,1000,2e-3)
+    main_graph = get_connected_gnp_graph(12000,10000,2e-4)
 
     # print("Getting diameter...")
     # print(nx.diameter(G))

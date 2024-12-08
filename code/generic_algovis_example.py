@@ -15,7 +15,7 @@ if __name__ == '__main__':
     nx_graph = nx.Graph()
 
     figs_dict = {
-        'base':new_default_fig(),
+        'base':default_new_fig(),
     }
 
     dyn_vis = DynVis(DynAlgo(nx_graph), figs_dict)
