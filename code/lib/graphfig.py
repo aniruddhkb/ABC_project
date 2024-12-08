@@ -499,17 +499,12 @@ def default_new_fig():
 
 def get_connected_gnp_graph(n, lower_bound_n, p): 
     pre_base_graph =  nx.fast_gnp_random_graph(n,p)
-    cc_nodes_lst = list(nx.connected_components(pre_base_graph))
-    cc_lens_lst = [len(i) for i in cc_nodes_lst]
-    idx = cc_lens_lst.index(max(cc_lens_lst)) 
-    base_graph = nx.induced_subgraph(pre_base_graph,cc_nodes_lst[idx]).copy()
-    try:
-        assert len(base_graph.nodes) >= lower_bound_n
-    except AssertionError:
-        print(len(base_graph.nodes)) 
-        print([len(i) for i in nx.connected_components(pre_base_graph)])
-        raise AssertionError
-
+    cc_nodes_set = max(nx.connected_components(pre_base_graph), key=len)
+    
+    base_graph = nx.induced_subgraph(pre_base_graph,cc_nodes_set).copy()
+    
+    assert len(base_graph.nodes) >= lower_bound_n
+    
     return base_graph
 
 

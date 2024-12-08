@@ -11,6 +11,7 @@ from tqdm import tqdm
 class BFSAlgo(StatAlgo):
 
     def __init__(self, base_graph:nx.Graph, start_node_arg:int|list[int],max_level:int|None = None, allowed_node_set:None|set = None):
+        
         super().__init__(base_graph)
         self.max_level = max_level
         self.allowed_node_set = allowed_node_set
@@ -28,14 +29,17 @@ class BFSAlgo(StatAlgo):
         if self.allowed_node_set is not None:
             assert all([node in self.allowed_node_set for node in self.multi_roots])
         
+        
+        
+        bfs_graph_nodes = BFSAlgo.func_bfs(self.base_graph, self.multi_roots, self.max_level, self.allowed_node_set).nodes
+        nodes_to_delete = set(self.base_graph.nodes).difference(set(bfs_graph_nodes))
+        self.base_graph.remove_nodes_from(nodes_to_delete)
+        self.all_graphs['bfs_tree'] = self.base_graph
         self.bfs_graph = self.base_graph
+        # to_delete_nodes = list(set(self.bfs_graph.nodes).difference(set(bfs_graph_nodes))) 
         
-        bfs_graph_nodes = BFSAlgo.func_bfs(self.bfs_graph, self.multi_roots, self.max_level, self.allowed_node_set).nodes
-        to_delete_nodes = list(set(self.bfs_graph.nodes).difference(set(bfs_graph_nodes))) 
+        # self.bfs_graph.remove_nodes_from(to_delete_nodes)
         
-        self.bfs_graph.remove_nodes_from(to_delete_nodes)
-        
-        self.all_graphs['bfs_tree'] = self.bfs_graph
         
         for node in self.bfs_graph.nodes:
             node_data = self.bfs_graph.nodes[node]

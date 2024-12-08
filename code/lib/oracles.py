@@ -25,15 +25,12 @@ class Oracles(DynAlgo):
         self.A_s[0] = set(self.oracle_graph.nodes)
         for i in range(1, self.k + 1):
             self.A_s[i] = set()
-        
-        
-        
 
         self.B = dict()
         for i in self.oracle_graph.nodes:
             self.B[i] = set()
 
-        
+     
         self.C = dict()
         for i in self.oracle_graph.nodes:
             self.C[i] = set()
@@ -101,12 +98,12 @@ class Oracles(DynAlgo):
         for w in self.oracle_graph.nodes:
             s_ES_w:ESAlgov2 =  self.single_ES_s[w]
             if((u,v) in s_ES_w.es_graph.edges):
-                s_ES_w.es_update_delete_edge(u,v,perf_mode=True)
+                s_ES_w.es_delete_genf(u,v,perf_mode=True)
                 shifted.append((s_ES_w, s_ES_w.shifted, True)) 
         for a_idx in range(self.k):
             m_ES_a:ESAlgov2 = self.multi_ES_A_s[a_idx]
             if((u,v) in m_ES_a.es_graph.edges):
-                m_ES_a.es_update_delete_edge(u,v,perf_mode=True)
+                m_ES_a.es_delete_genf(u,v,perf_mode=True)
                 shifted.append((m_ES_a,m_ES_a.shifted, False))
         for shifted_triple in shifted:
             es:ESAlgov2 = shifted_triple[0]

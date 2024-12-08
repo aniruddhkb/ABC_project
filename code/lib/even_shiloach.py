@@ -77,10 +77,12 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                 nodes_del_Q.appendleft(neighbor)
             self.es_graph.remove_node(curr_node)
 
-    def es_update_delete_edge(self, u:int, v:int, perf_mode:bool=False):     
-        
-        self.shifted = list()
+    def es_delete_oneshot(self, u:int, v:int):
+        return next(self.es_delete_genf(u,v))
 
+    def es_delete_genf(self, u:int, v:int, perf_mode:bool=False):     
+        
+        self.shifted = []
         self.orphans = []
         assert self.es_graph.has_edge(u,v)
         self.es_graph.remove_edge(u,v)
@@ -481,7 +483,7 @@ if __name__ == "__main__":
     # main_graph.add_edge(1,2)
 
     es_algo = ESAlgov2(main_graph, (7,6),5) 
-    es_algo.assign_generator(lambda: es_algo.es_update_delete_edge(0,1,True),)
+    es_algo.assign_generator(lambda: es_algo.es_delete_genf(0,1,True),)
     next(es_algo.update_genner)
     #print(es_algo.es_graph.nodes)
     fig = default_new_fig()
