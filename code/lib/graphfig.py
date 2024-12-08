@@ -18,14 +18,19 @@ DEFAULT_FIG_SIZE = (1366,768)
 
 class StatAlgo():
     def __init__(self, base_graph:nx.Graph,copy=True):
-        # assert nx.number_of_selfloops(base_graph) == 0, 'Graph cannot have self loops'
-        if(copy):
-            self.base_graph = deepcopy(base_graph)
-        else:
-            self.base_graph = base_graph
-        self.all_graphs:dict[str,nx.Graph] = {}
-        self.all_graphs['base'] = self.base_graph
-        self.keys = self.all_graphs.keys()
+        try:
+            assert self.initted #This is for the 'diamond problem' in multiple inheritance
+            print("Initted already.")
+        
+        except AttributeError:
+            self.initted = True
+            if(copy):
+                self.base_graph = deepcopy(base_graph)
+            else:
+                self.base_graph = base_graph
+            self.all_graphs:dict[str,nx.Graph] = {}
+            self.all_graphs['base'] = self.base_graph
+            self.keys = self.all_graphs.keys()
 
 
 class DynAlgo(StatAlgo):
@@ -129,7 +134,7 @@ class DynAlgo(StatAlgo):
                     yield (curr_updates, False)
 
 
-        if perf_mode:
+        if not perf_mode:
             yield
         #Modding and deleting edges
         for i in range(5):
@@ -164,51 +169,22 @@ class DynAlgo(StatAlgo):
                 curr_updates = self.get_new_update_dict()
                 curr_updates['base']['nodes'].append((i,'DEL'))
                 yield(curr_updates, i==4 )
-            
-    def example_update_fn(self, is_node:bool, add_del_or_mod:str, graphelem:int|tuple[int, int]):
-        raise NotImplementedError('This function is no longer in the correct form needed, and I am too lazy to fix it.')
-        self.update_dict = self.get_new_update_dict()
-        curr_updates = self.get_new_update_dict()
-        is_add, is_del, is_mod = self.add_del_mod_dict[add_del_or_mod]
-        
-        if is_add:
-            if is_node:
-                self.nx_add_node('base', graphelem)
-                curr_updates['base']['nodes'].append((graphelem,'ADD'))
-                curr_updates['base']['nodes'].append((graphelem,'MOD'))
-            else:
-                self.nx_add_edge('base', *graphelem)
-                curr_updates['base']['edges'].append((graphelem,'ADD'))
-        elif is_del:
-            if is_node:
-                self.nx_remove_node('base', graphelem)
-                curr_updates['base']['nodes'].append((graphelem,'DEL'))
-            else:
-                self.nx_remove_edge('base', *graphelem)
-                curr_updates['base']['edges'].append((graphelem,'DEL'))
-        elif is_mod:
-            if is_node:
-                curr_updates['base']['nodes'].append((graphelem,'MOD'))
-            else:
-                curr_updates['base']['edges'].append((graphelem,'MOD'))
-        for key in self.keys:
-            self.update_dict[key]['nodes'].extend(curr_updates[key]['nodes'])
-            self.update_dict[key]['edges'].extend(curr_updates[key]['edges'])                
-        yield (curr_updates, True)
         
 class StatVis:
 
     def __init__(self, algo_nx: Type[StatAlgo], figs_dict:dict[str,go.Figure]):
-        
-        self.algo_nx = algo_nx
-        self.figs_dict = figs_dict
-        self.keys = self.figs_dict.keys()
-        self.graphs_dict = self.algo_nx.all_graphs
-        assert [key in self.graphs_dict for key in self.figs_dict], 'All keys in figs_dict must be in graphs_dict'
-        
-        self.traces_dict = {}
-        for key in self.keys:
-            self.traces_dict[key] = {}
+        try:
+            assert self.is_initted #for diamond problem in multiple inheritance
+        except AttributeError:
+            self.algo_nx = algo_nx
+            self.figs_dict = figs_dict
+            self.keys = self.figs_dict.keys()
+            self.graphs_dict = self.algo_nx.all_graphs
+            assert [key in self.graphs_dict for key in self.figs_dict], 'All keys in figs_dict must be in graphs_dict'
+            
+            self.traces_dict = {}
+            for key in self.keys:
+                self.traces_dict[key] = {}
     
 
     
@@ -528,7 +504,7 @@ def get_connected_gnp_graph(n, lower_bound_n, p):
     idx = cc_lens_lst.index(max(cc_lens_lst)) 
     base_graph = nx.induced_subgraph(pre_base_graph,cc_nodes_lst[idx]).copy()
     try:
-        assert len(base_graph.nodes) > lower_bound_n
+        assert len(base_graph.nodes) >= lower_bound_n
     except AssertionError:
         print(len(base_graph.nodes)) 
         print([len(i) for i in nx.connected_components(pre_base_graph)])
@@ -556,8 +532,8 @@ if __name__ == '__main__':
         figs_dict = {
             'base':default_new_fig(),
         }
-        es_vis = DynVis(DynAlgo(nx_graph), figs_dict)
-        es_vis.vis_init_all()
+        bfs_vis = DynVis(DynAlgo(nx_graph), figs_dict)
+        bfs_vis.vis_init_all()
 
         @app.callback(
             Output('base_fig', 'figure'),
@@ -567,13 +543,13 @@ if __name__ == '__main__':
         def incremental_step_callback(n_clicks):
             
             if n_clicks is not None:
-                if es_vis.algo_nx.update_genner is None:
+                if bfs_vis.algo_nx.update_genner is None:
             
-                    es_vis.algo_nx.assign_generator(es_vis.algo_nx.yieldtest_update_fn)
+                    bfs_vis.algo_nx.assign_generator(bfs_vis.algo_nx.yieldtest_update_fn)
             
             
-                es_vis.yieldtest_vis_step()
-            return es_vis.figs_dict['base']
+                bfs_vis.yieldtest_vis_step()
+            return bfs_vis.figs_dict['base']
         
         app.layout = html.Div([
             html.Button('Incremental Step', id='step_button'),
