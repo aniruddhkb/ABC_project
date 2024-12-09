@@ -18,8 +18,8 @@ class DecrAPSPConstTAlgo(StatAlgo):
         self.epsilon = epsilon
         self.c = c
         print("Making decr lln.")
-        self.decr_lln = DecrAPSPAlgo(self.oracle_graph,self.epsilon,self.c)
-        self.n = len(self.oracle_graph.nodes)
+        self.decr_lln = DecrAPSPAlgo(self.base_graph,self.epsilon,self.c)
+        self.n = len(self.base_graph.nodes)
         print("Making oracle.")
         self.oracle:Oracle = Oracle(base_graph,k=2,d=self.n**0.5)
         self.r = floor(0.5*log(self.n,2))
@@ -41,9 +41,10 @@ class DecrAPSPConstTAlgo(StatAlgo):
         
         if oracle_guess < 3*self.n**0.5:
             i_start = max(floor(log(oracle_guess/3,2)),0)
-            lln_guesses = [self.decr_lln.evaluate_S_i(u,v,i)[1] for i in range(i_start,i_start + 3) if i < self.decr_lln.I_range]
+            lln_guesses = [self.decr_lln.evaluate_S_i(u,v,i) for i in range(i_start,i_start + 3) if i < self.decr_lln.I_range]
             return min(lln_guesses + [oracle_guess,])
         else: 
+            print('miss.')
             a = self.ES_M_r.get_root(u)
             b = self.ES_M_r.get_root(v) 
             if a > b:
@@ -58,9 +59,8 @@ class DecrAPSPConstTAlgo(StatAlgo):
     def delete(self,u,v):
         self.oracle.delete(u,v)
         self.decr_lln.delete(u,v)
-        if(u in self.S_r and v in self.S_r):
-            self.dist_pairs_r.pop((min(u,v),max(u,v)))
-        self.oracle_graph.remove_edge(u,v)
+        self.base_graph.remove_edge(u,v)
+        self.recompute_dist_pairs_r()
         
 if __name__ == "__main__":
     try:
@@ -89,17 +89,23 @@ if __name__ == "__main__":
         total = 0
         fails = 0
         fails_type_2 = 0
-        uv_s = list(decr_constTalgo.oracle_graph.edges)
+        uv_s = list(decr_constTalgo.base_graph.edges)
         if(len(uv_s) < 100):
             break
         print("DELETING EDGES.")
         for _ in tqdm(range(random.randint(10,100))):
+            skip = False
             uv = random.choice(uv_s)
             uv_s.remove(uv)
-            u,v = uv
-            decr_constTalgo.delete(u,v)
-        true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_constTalgo.oracle_graph))
-        for u,v in tqdm(list(combinations(decr_constTalgo.oracle_graph.nodes,2))):
+            decr_constTalgo.base_graph.remove_edge(*uv)
+            if not nx.is_connected(decr_constTalgo.base_graph):
+                skip = True
+            decr_constTalgo.base_graph.add_edge(*uv)
+            if not skip:
+                decr_constTalgo.delete(*uv)
+
+        true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_constTalgo.base_graph))
+        for u,v in tqdm(list(combinations(decr_constTalgo.base_graph.nodes,2))):
             try: 
                 true_uv_dist = true_uv_dists[u][v]
             except KeyError or nx.NetworkXNoPath:

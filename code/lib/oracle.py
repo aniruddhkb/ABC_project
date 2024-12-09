@@ -14,7 +14,7 @@ class Oracle(DynAlgo):
 
     def __init__(self, base_graph:nx.Graph, k:int, d:int): 
         DynAlgo.__init__(self, base_graph) 
-        self.oracle_graph = self.oracle_graph
+        self.oracle_graph = self.base_graph
         self.n = len(self.oracle_graph.nodes)
         self.all_graphs["oracle_base"] = self.oracle_graph
 
@@ -57,7 +57,7 @@ class Oracle(DynAlgo):
         w = u 
         i = 0
         while True:
-            if i == k - 1 or self.V_trees[w].get_level(v) < self.A_trees[i + 1].get_level(v):
+            if i == self.k - 1 or self.V_trees[w].get_level(v) < self.A_trees[i + 1].get_level(v):
                 break 
             i += 1
             u, v = v, u
