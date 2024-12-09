@@ -103,6 +103,7 @@ if __name__ == "__main__":
             break
         if not first_time:
             print("DELETING EDGES.")
+            n_deletions = 0
             for _ in tqdm(range(random.randint(10,100))):
                 skip = False
                 uv = random.choice(uv_s)
@@ -113,6 +114,8 @@ if __name__ == "__main__":
                 decr_constTalgo.base_graph.add_edge(*uv)
                 if not skip:
                     decr_constTalgo.delete(*uv)
+                    n_deletions += 1
+            print(f"N_DELETIONS {n_deletions}")
         else:
             first_time = False
         true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_constTalgo.base_graph))

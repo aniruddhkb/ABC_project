@@ -195,11 +195,13 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                         if not perf_mode:
                             self.es_delete_subtree(curr_Q_node, curr_updates)
                             self.refresh_update_dict(curr_updates)
+                            self.update_all_roots_levels()
                             #print("A NODE WENT BELOW THE LINE:", curr_Q_node)
                             yield(curr_updates, True)
                             return
                         else:
                             self.es_delete_subtree(curr_Q_node, None)
+                            self.update_all_roots_levels()
                             yield(None, True)
                             return
 
@@ -280,6 +282,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                     v_data.pop('original_orphan')
                     #print("FINISHED ORPHAN Q")
         
+        self.update_all_roots_levels()
         if not perf_mode:
             for node in self.es_graph.nodes:
                 curr_updates['es_tree']['nodes'].append((node,'MOD'))

@@ -83,6 +83,8 @@ class Oracle(DynAlgo):
             A_tree_i:ESAlgov2 = self.A_trees[i]
             if((u,v) in A_tree_i.es_graph.edges):
                 A_tree_i.es_delete_oneshot(u,v)
+        
+        self.oracle_graph.remove_edge(u,v)
                     
 
 if __name__ == "__main__":
