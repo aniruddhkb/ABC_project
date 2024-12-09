@@ -9,7 +9,7 @@ import multiprocessing as mp
 import multiprocessing.pool as mp_pool
 from pprint import pprint
 import random 
-random.seed(31415)
+random.seed(29824)
 
 STATUS_LOW = -1
 STATUS_OK = 0 
@@ -189,14 +189,14 @@ if __name__ == "__main__":
     except RuntimeError:
         MULTI_THREAD = False
     N_THREADS = 11
-    prob = 1e-6
+    prob = 0.005
     while True:
         try:
             base_graph: nx.Graph = get_connected_gnp_graph(900,600,prob)
             break
         except AssertionError:
             prob *= 2
-            
+    print("GNP PROB: ", prob)
     c = 0.5
     epsilon = 0.5
     print(f"Base graph nodes and edges: {base_graph.number_of_nodes()}, {base_graph.number_of_edges()} ")
@@ -212,15 +212,18 @@ if __name__ == "__main__":
         if(len(uv_s) < 100):
             break
         print("DELETING EDGES.")
-        for _ in tqdm(range(random.randint(10,100))):
+        n_deletions = 0
+        for _ in tqdm(range(random.randint(50,100))):
             uv = random.choice(uv_s)
             base_graph.remove_edge(*uv)
             if not nx.is_connected(base_graph):
                 base_graph.add_edge(*uv)
                 continue
+            n_deletions += 1
             uv_s.remove(uv)
             u,v = uv
             decr_algo.delete(u,v)
+        print(f"Deleted {n_deletions} edges.")
         true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_algo.base_graph))
         for u,v in tqdm(list(combinations(decr_algo.base_graph.nodes,2))):
             try: 

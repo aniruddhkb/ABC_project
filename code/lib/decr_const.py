@@ -86,7 +86,7 @@ if __name__ == "__main__":
             break
         except AssertionError:
             prob *= 2
-            
+    print("GNP PROB: ", prob)
     c = 0.5
     epsilon = 0.5
     print(f"Base graph nodes and edges: {base_graph.number_of_nodes()}, {base_graph.number_of_edges()} ")

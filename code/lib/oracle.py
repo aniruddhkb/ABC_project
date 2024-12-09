@@ -6,7 +6,7 @@ from even_shiloach import *
 import networkx as nx
 from collections import deque
 import random 
-random.seed(31415)
+random.seed(2412)
 
 get_cointoss = lambda p: random.binomialvariate(1,p)
 
@@ -89,7 +89,7 @@ class Oracle(DynAlgo):
 
 if __name__ == "__main__":
     
-    prob = 1e-6
+    prob = 5e-3
     while True:
         try:
             base_graph: nx.Graph = get_connected_gnp_graph(900,600,prob)
@@ -124,7 +124,7 @@ if __name__ == "__main__":
             break
         print("DELETING EDGES.")
         n_deletions = 0
-        for _ in tqdm(range(random.randint(10,100))):
+        for _ in tqdm(range(random.randint(50,100))):
             skip = False
             uv = random.choice(uv_s)
             oracle.base_graph.remove_edge(*uv)
