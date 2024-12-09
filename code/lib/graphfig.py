@@ -25,11 +25,11 @@ class StatAlgo():
         except AttributeError:
             self.initted = True
             if(copy):
-                self.base_graph = deepcopy(base_graph)
+                self.oracle_graph = deepcopy(base_graph)
             else:
-                self.base_graph = base_graph
+                self.oracle_graph = base_graph
             self.all_graphs:dict[str,nx.Graph] = {}
-            self.all_graphs['base'] = self.base_graph
+            self.all_graphs['base'] = self.oracle_graph
             self.keys = self.all_graphs.keys()
 
 
@@ -91,7 +91,7 @@ class DynAlgo(StatAlgo):
 
     def yieldtest_update_fn(self, perf_mode:bool=False):
         
-        assert len(self.base_graph.nodes) == 0, 'Graph must be empty'
+        assert len(self.oracle_graph.nodes) == 0, 'Graph must be empty'
 
         if not perf_mode:
             self.update_dict = self.get_new_update_dict()

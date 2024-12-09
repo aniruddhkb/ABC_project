@@ -31,11 +31,11 @@ class BFSAlgo(StatAlgo):
         
         
         
-        bfs_graph_nodes = BFSAlgo.func_bfs(self.base_graph, self.multi_roots, self.max_level, self.allowed_node_set).nodes
-        nodes_to_delete = set(self.base_graph.nodes).difference(set(bfs_graph_nodes))
-        self.base_graph.remove_nodes_from(nodes_to_delete)
-        self.all_graphs['bfs_tree'] = self.base_graph
-        self.bfs_graph = self.base_graph
+        bfs_graph_nodes = BFSAlgo.func_bfs(self.oracle_graph, self.multi_roots, self.max_level, self.allowed_node_set).nodes
+        nodes_to_delete = set(self.oracle_graph.nodes).difference(set(bfs_graph_nodes))
+        self.oracle_graph.remove_nodes_from(nodes_to_delete)
+        self.all_graphs['bfs_tree'] = self.oracle_graph
+        self.bfs_graph = self.oracle_graph
         # to_delete_nodes = list(set(self.bfs_graph.nodes).difference(set(bfs_graph_nodes))) 
         
         # self.bfs_graph.remove_nodes_from(to_delete_nodes)

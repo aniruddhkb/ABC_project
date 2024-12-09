@@ -285,8 +285,10 @@ class ESAlgov2(BFSAlgo,DynAlgo):
             return 
     
     def get_level(self,node:int)->int:
-        assert node in self.es_graph.nodes
-        return self.es_graph.nodes[node]['level']
+        if node in self.es_graph.nodes:
+            return self.es_graph.nodes[node]['level']
+        else:
+            return float("inf")
     
     def get_root(self,node:int)->int:
         assert node in self.es_graph.nodes

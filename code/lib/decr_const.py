@@ -18,8 +18,8 @@ class DecrAPSPConstTAlgo(StatAlgo):
         self.epsilon = epsilon
         self.c = c
         print("Making decr lln.")
-        self.decr_lln = DecrAPSPAlgo(self.base_graph,self.epsilon,self.c)
-        self.n = len(self.base_graph.nodes)
+        self.decr_lln = DecrAPSPAlgo(self.oracle_graph,self.epsilon,self.c)
+        self.n = len(self.oracle_graph.nodes)
         print("Making oracle.")
         self.oracle:Oracle = Oracle(base_graph,k=2,d=self.n**0.5)
         self.r = floor(0.5*log(self.n,2))
@@ -53,54 +53,62 @@ class DecrAPSPConstTAlgo(StatAlgo):
         self.dist_pairs_r = dict()
         for (u,v) in list(combinations(self.S_r,2)):
             u,v = min(u,v),max(u,v) 
-            self.dist_pairs_r[(u,v)] = self.decr_lln.query_linear(u,v)
+            self.dist_pairs_r[(u,v)] = self.decr_lln.query_binsearch(u,v)
 
     def delete(self,u,v):
         self.oracle.delete(u,v)
         self.decr_lln.delete(u,v)
         if(u in self.S_r and v in self.S_r):
             self.dist_pairs_r.pop((min(u,v),max(u,v)))
-        self.base_graph.remove_edge(u,v)
+        self.oracle_graph.remove_edge(u,v)
         
 if __name__ == "__main__":
-    
+    try:
+        import syscheck
+        syscheck.syscheck()
+        MULTI_THREAD = True
+    except RuntimeError:
+        MULTI_THREAD = False
+    N_THREADS = 11
     prob = 1e-6
     while True:
         try:
-            base_graph = get_connected_gnp_graph(1200,800,prob)
+            base_graph: nx.Graph = get_connected_gnp_graph(900,600,prob)
             break
         except AssertionError:
             prob *= 2
-            # print(f"\rProbability: {prob}, {" "*5}", end="")
-    c = 0.01
+            
+    c = 0.5
     epsilon = 0.5
-    print("\n\nBase graph nodes and edges: ", len(base_graph.nodes), len(base_graph.edges))
-    decr_algo = DecrAPSPConstTAlgo(base_graph,epsilon,c)
+    print(f"Base graph nodes and edges: {base_graph.number_of_nodes()}, {base_graph.number_of_edges()} ")
 
-    first_time = True
+    decr_constTalgo = DecrAPSPConstTAlgo(base_graph,epsilon,c)
+
+    print("TESTING.")
     while True:
         total = 0
         fails = 0
-        if(not first_time):
-            uv_s = list(decr_algo.base_graph.edges)
-            if(len(uv_s) < 100):
-                break
-            for _ in range(random.randint(10,100)):
-                uv = random.choice(uv_s)
-                uv_s.remove(uv)
-                u,v = uv
-                decr_algo.delete(u,v)
-        else:
-            first_time = False
-        
-        for u,v in (list(combinations(decr_algo.base_graph.nodes,2))):
+        fails_type_2 = 0
+        uv_s = list(decr_constTalgo.oracle_graph.edges)
+        if(len(uv_s) < 100):
+            break
+        print("DELETING EDGES.")
+        for _ in tqdm(range(random.randint(10,100))):
+            uv = random.choice(uv_s)
+            uv_s.remove(uv)
+            u,v = uv
+            decr_constTalgo.delete(u,v)
+        true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_constTalgo.oracle_graph))
+        for u,v in tqdm(list(combinations(decr_constTalgo.oracle_graph.nodes,2))):
             try: 
-                true_uv_dist = nx.shortest_path_length(decr_algo.base_graph,u,v)
-
-
-                if not decr_algo.query(u,v) <= true_uv_dist*(1+epsilon):
-                    fails += 1
-                total += 1
-            except nx.NetworkXNoPath:
+                true_uv_dist = true_uv_dists[u][v]
+            except KeyError or nx.NetworkXNoPath:
                 continue
+
+            if not decr_constTalgo.query(u,v) <= true_uv_dist*(1+epsilon):
+                fails += 1
+            total += 1
+            
         print(f"Total: {total}, Fails: {fails}")
+
+

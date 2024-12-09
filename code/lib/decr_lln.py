@@ -27,7 +27,7 @@ class DecrAPSPAlgo(DynAlgo):
         DynAlgo.__init__(self, base_graph)
         self.eps = eps
         self.c = c 
-        self.n = len(self.base_graph.nodes) 
+        self.n = len(self.oracle_graph.nodes) 
         self.I_range = floor(log(self.n,2)) + 1 
         self.S_lst = []
         self.q_lst = []
@@ -40,7 +40,7 @@ class DecrAPSPAlgo(DynAlgo):
             
             S_i = []
             q_i = min(1, c*log(self.n)/(self.eps*2**i))
-            for v in self.base_graph.nodes:
+            for v in self.oracle_graph.nodes:
                 if get_cointoss(q_i):
                     S_i.append(v) 
             self.S_lst.append(S_i)
@@ -50,8 +50,8 @@ class DecrAPSPAlgo(DynAlgo):
         for i in tqdm(range(self.I_range)):
             
             S_i = self.S_lst[i] 
-            S_tree_i = ESAlgov2(self.base_graph,S_i)
-            for v in self.base_graph.nodes:
+            S_tree_i = ESAlgov2(self.oracle_graph,S_i)
+            for v in self.oracle_graph.nodes:
                 try:
                     assert v in S_tree_i.es_graph.nodes
                 except AssertionError:  
@@ -80,7 +80,7 @@ class DecrAPSPAlgo(DynAlgo):
                 for i in (range(self.I_range)):
                     V_trees_i = dict()
                     for w in (self.S_lst[i]):
-                        V_trees_i[w] = pool.apply_async(ESAlgov2, args=(self.base_graph,w,2**(i+2)))        
+                        V_trees_i[w] = pool.apply_async(ESAlgov2, args=(self.oracle_graph,w,2**(i+2)))        
                     self.V_trees.append(V_trees_i)
 
                 for i in (range(self.I_range)):
@@ -96,15 +96,15 @@ class DecrAPSPAlgo(DynAlgo):
             for i in tqdm(range(self.I_range)):
                 V_trees_i = dict()
                 for w in (self.S_lst[i]):
-                    V_trees_i[w] = ESAlgov2(self.base_graph,w,2**(i+2))
+                    V_trees_i[w] = ESAlgov2(self.oracle_graph,w,2**(i+2))
                 self.V_trees.append(V_trees_i)
         
         print("Getting uv distances.")
 
-        uv_dists = dict(nx.all_pairs_shortest_path_length(self.base_graph))   
+        uv_dists = dict(nx.all_pairs_shortest_path_length(self.oracle_graph))   
 
         print("Checking distances.")
-        for u,v in tqdm(list(combinations(self.base_graph.nodes,2))):
+        for u,v in tqdm(list(combinations(self.oracle_graph.nodes,2))):
             uv_dist = uv_dists[u][v]
             for i in range(self.I_range):
                     if uv_dist <= self.eps*2**(i+1):
@@ -117,8 +117,8 @@ class DecrAPSPAlgo(DynAlgo):
                             raise AssertionError
 
     def delete(self, u:int, v:int):
-        assert (u,v) in self.base_graph.edges
-        self.base_graph.remove_edge(u,v)
+        assert (u,v) in self.oracle_graph.edges
+        self.oracle_graph.remove_edge(u,v)
         for i in range(self.I_range):
             S_tree_i:ESAlgov2 = self.S_trees[i]
             if((u,v) in S_tree_i.es_graph.edges): 
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         total = 0
         fails = 0
         fails_type_2 = 0
-        uv_s = list(decr_algo.base_graph.edges)
+        uv_s = list(decr_algo.oracle_graph.edges)
         if(len(uv_s) < 100):
             break
         print("DELETING EDGES.")
@@ -216,8 +216,8 @@ if __name__ == "__main__":
             uv_s.remove(uv)
             u,v = uv
             decr_algo.delete(u,v)
-        true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_algo.base_graph))
-        for u,v in tqdm(list(combinations(decr_algo.base_graph.nodes,2))):
+        true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_algo.oracle_graph))
+        for u,v in tqdm(list(combinations(decr_algo.oracle_graph.nodes,2))):
             try: 
                 true_uv_dist = true_uv_dists[u][v]
             except KeyError or nx.NetworkXNoPath:
