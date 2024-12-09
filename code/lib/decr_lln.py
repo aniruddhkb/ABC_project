@@ -1,5 +1,5 @@
 from itertools import combinations, product
-from math import floor, log
+from math import floor, isfinite, log
 from graphfig import * 
 from bfs import *
 from even_shiloach import *
@@ -7,7 +7,7 @@ import networkx as nx
 from collections import deque
 import multiprocessing as mp 
 import multiprocessing.pool as mp_pool
-
+from pprint import pprint
 import random 
 random.seed(31415)
 
@@ -29,112 +29,180 @@ class DecrAPSPAlgo(DynAlgo):
         self.c = c 
         self.n = len(self.base_graph.nodes) 
         self.I_range = floor(log(self.n,2)) + 1 
-        self.S_s = []
-        self.q_s = []
-        self.ES_M = [] 
-        self.p_s = [] 
-        self.ES_T = [] 
+        self.S_lst = []
+        self.q_lst = []
+        self.S_trees: list[ESAlgov2] = [] 
+        self.S_parent = [] 
+        self.V_trees: list[dict[int,ESAlgov2]] = [] 
 
-        # print("Making ES_M_s")
+        print("Making S_lst.")
         for i in (range(self.I_range)):
-            ES_T_i = dict() 
-            S_i = set()
+            
+            S_i = []
             q_i = min(1, c*log(self.n)/(self.eps*2**i))
-            # # print("PROBABILITY: ", q_i)
             for v in self.base_graph.nodes:
                 if get_cointoss(q_i):
-                    S_i.add(v) 
-            ES_M_i = ESAlgov2(self.base_graph,S_i)
-            self.S_s.append(S_i)
-            self.q_s.append(q_i)
-            self.ES_M.append(ES_M_i)
+                    S_i.append(v) 
+            self.S_lst.append(S_i)
+        print(f"Made S_lst. Lens = {[len(S_i) for S_i in self.S_lst]}" )
+        # print(self.S_lst)
+        print("Making S_trees.")
+        for i in tqdm(range(self.I_range)):
+            
+            S_i = self.S_lst[i] 
+            S_tree_i = ESAlgov2(self.base_graph,S_i)
+            for v in self.base_graph.nodes:
+                try:
+                    assert v in S_tree_i.es_graph.nodes
+                except AssertionError:  
+                    print(f"{v} not in {S_tree_i.es_graph.nodes}")
+                    raise AssertionError
+                try: 
+                    assert S_tree_i.get_level(v) <= self.eps * 2**i
+                except AssertionError:
+                    print(f"Level of node {v} in tree S_tree {i} = {S_tree_i.get_level(v)} > {self.eps * 2**i}")
+                    raise AssertionError
+
+            self.S_lst.append(S_i)
+            self.q_lst.append(q_i)
+            self.S_trees.append(S_tree_i)
+        print("Made S_trees.")
             
         
 
 
         #Multi-threaded version
         if (MULTI_THREAD):
-            # print("Making ES_S_s")
-            with mp_pool.ThreadPool(N_THREDS) as pool:
+            
+            print("MULTI THREAD.")
+            print("Making V_trees")
+            with mp_pool.ThreadPool(N_THREADS) as pool:
                 for i in (range(self.I_range)):
-                    ES_T_i = dict()
-                    for w in (self.S_s[i]):
-                        ES_T_i[w] = pool.apply_async(ESAlgov2, args=(self.base_graph,w,2**(i+2)))        
-                    self.ES_T.append(ES_T_i)
+                    V_trees_i = dict()
+                    for w in (self.S_lst[i]):
+                        V_trees_i[w] = pool.apply_async(ESAlgov2, args=(self.base_graph,w,2**(i+2)))        
+                    self.V_trees.append(V_trees_i)
 
                 for i in (range(self.I_range)):
-                    # print(f"Waiting for {i}")
-                    ES_T_i = self.ES_T[i]
-                    for w in (self.S_s[i]):
-                        ES_T_i[w] = ES_T_i[w].get()
+                    print(f"Waiting for {i}")
+                    V_trees_i = self.V_trees[i]
+                    for w in tqdm(self.S_lst[i]):
+                        V_trees_i[w] = V_trees_i[w].get()
 
         #Single-threaded version
         else:
-            # print("Making ES_S_s")
+            print("Single threaded; making V-trees.")
             
-            for i in (range(self.I_range)):
-                ES_T_i = dict()
-                for w in (self.S_s[i]):
-                    ES_T_i[w] = ESAlgov2(self.base_graph,w,2**(i+2))
-                self.ES_T.append(ES_T_i)
+            for i in tqdm(range(self.I_range)):
+                V_trees_i = dict()
+                for w in (self.S_lst[i]):
+                    V_trees_i[w] = ESAlgov2(self.base_graph,w,2**(i+2))
+                self.V_trees.append(V_trees_i)
+        
+        print("Getting uv distances.")
+
+        uv_dists = dict(nx.all_pairs_shortest_path_length(self.base_graph))   
+
+        print("Checking distances.")
+        for u,v in tqdm(list(combinations(self.base_graph.nodes,2))):
+            uv_dist = uv_dists[u][v]
+            for i in range(self.I_range):
+                    if uv_dist <= self.eps*2**(i+1):
+                        w = self.S_trees[i].get_root(u)
+                        w_V_tree_i = self.V_trees[i][w]
+                        try:
+                            assert v in w_V_tree_i.es_graph.nodes
+                        except AssertionError:
+                            print(f"Node {v} not in V-tree {i} of S_i-parent of {u} even though distance is {uv_dist} <= {self.eps*2**(i+1)}")
+                            raise AssertionError
 
     def delete(self, u:int, v:int):
         assert (u,v) in self.base_graph.edges
         self.base_graph.remove_edge(u,v)
         for i in range(self.I_range):
-            ES_M_i:ESAlgov2 = self.ES_M[i]
-            if((u,v) in ES_M_i.es_graph.edges): 
-                ES_M_i.es_delete_oneshot(u,v)
+            S_tree_i:ESAlgov2 = self.S_trees[i]
+            if((u,v) in S_tree_i.es_graph.edges): 
+                S_tree_i.es_delete_oneshot(u,v)
 
-            for w in self.S_s[i]:
-                ES_T_i_w:ESAlgov2 = self.ES_T[i][w] 
-                if((u,v) in ES_T_i_w.es_graph.edges):
-                    ES_T_i_w.es_delete_oneshot(u,v)
+            for w in self.S_lst[i]:
+                V_tree_i_w:ESAlgov2 = self.V_trees[i][w] 
+                if((u,v) in V_tree_i_w.es_graph.edges):
+                    V_tree_i_w.es_delete_oneshot(u,v)
     
     def query_linear(self,u:int,v:int):
         for i in range(self.I_range):
-            M_i:ESAlgov2 = self.ES_M[i]
-            if u in M_i.es_graph.nodes:
-                w = M_i.get_root(u)
-                ES_T_i_w:ESAlgov2 = self.ES_T[i][w]
-                if u in ES_T_i_w.es_graph.nodes and v in ES_T_i_w.es_graph.nodes: 
-                    return ES_T_i_w.get_level(u) + ES_T_i_w.get_level(v) 
+            ans = self.evaluate_S_i(u,v,i)
+            if isfinite(ans):
+                return ans 
         return float("inf")
 
     def evaluate_S_i(self,u,v,i):
-        if not u in self.ES_M[i].es_graph.nodes: 
-            status = STATUS_HIGH
-        else: 
-            w = self.ES_M[i].get_root(u)
-            ES_T_i_w_nodes =  self.ES_T[i][w].es_graph.nodes
-            if not v in ES_T_i_w_nodes or not u in ES_T_i_w_nodes:
-                status = STATUS_LOW 
-            else:
-                status = STATUS_OK
-        if status == STATUS_OK: 
-            ES_T_i_w:ESAlgov2 = self.ES_T[i][w]
-            return (status, ES_T_i_w.get_level(u) + ES_T_i_w.get_level(v))
+        S_tree_i:ESAlgov2 = self.S_trees[i]
+        assert u in S_tree_i.es_graph.nodes
+        w = S_tree_i.get_root(u)
+        assert S_tree_i.get_level(u) <= self.eps*2**i
+
+        V_tree_i_w:ESAlgov2 = self.V_trees[i][w]
+        assert u in V_tree_i_w.es_graph.nodes
+        assert w in V_tree_i_w.multi_roots
+
+        if v in V_tree_i_w.es_graph.nodes:
+            return V_tree_i_w.get_level(u) + V_tree_i_w.get_level(v)
         else:
-            return (status, float("inf"))
+            return float("inf")
         
+    def query_binsearch(self,u,v): 
+        low_idx = 0
+        high_idx = self.I_range - 1
+        low_ans = self.evaluate_S_i(u,v,low_idx)
+        low_status = isfinite(low_ans)
+        
+        if(low_status): 
+            return low_ans 
+        else: 
+            high_ans = self.evaluate_S_i(u,v,high_idx)
+            high_status = isfinite(high_ans)
+            if not high_status:
+                return float("inf")
+        while high_idx - low_idx > 1:
+            mid_idx = (high_idx + low_idx)//2
+            mid_ans = self.evaluate_S_i(u,v,mid_idx)
+            mid_status = isfinite(mid_ans)
+            if mid_status:
+                high_idx = mid_idx
+                high_ans = mid_ans
+                high_status = mid_status
+            else:
+                low_idx = mid_idx
+                low_ans = mid_ans
+                low_status = mid_status
+        return high_ans
+            
     
         
 if __name__ == "__main__":
-    MULTI_THREAD = False
-    N_THREDS = 11
+    try:
+        import syscheck
+        syscheck.syscheck()
+        MULTI_THREAD = True
+    except RuntimeError:
+        MULTI_THREAD = False
+    N_THREADS = 11
     prob = 1e-6
     while True:
         try:
-            base_graph = get_connected_gnp_graph(1200,800,prob)
+            base_graph: nx.Graph = get_connected_gnp_graph(900,600,prob)
             break
         except AssertionError:
             prob *= 2
             
-    c = 0.01
+    c = 0.5
     epsilon = 0.5
-    
+    print(f"Base graph nodes and edges: {base_graph.number_of_nodes()}, {base_graph.number_of_edges()} ")
+
     decr_algo = DecrAPSPAlgo(base_graph,epsilon,c)
 
+    print("TESTING.")
     while True:
         total = 0
         fails = 0
@@ -142,24 +210,26 @@ if __name__ == "__main__":
         uv_s = list(decr_algo.base_graph.edges)
         if(len(uv_s) < 100):
             break
-        for _ in range(random.randint(10,100)):
+        print("DELETING EDGES.")
+        for _ in tqdm(range(random.randint(10,100))):
             uv = random.choice(uv_s)
             uv_s.remove(uv)
             u,v = uv
             decr_algo.delete(u,v)
-        for u,v in (list(combinations(decr_algo.base_graph.nodes,2))):
+        true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_algo.base_graph))
+        for u,v in tqdm(list(combinations(decr_algo.base_graph.nodes,2))):
             try: 
-                true_l = nx.shortest_path_length(decr_algo.base_graph,u,v)
-
-
-                if not decr_algo.query_linear(u,v) <= true_l*(1+epsilon):
-                    fails += 1
-                if not decr_algo.query_binsearch(u,v) == decr_algo.query_linear(u,v):
-                    fails_type_2 += 1
-                total += 1
-            except nx.NetworkXNoPath:
+                true_uv_dist = true_uv_dists[u][v]
+            except KeyError or nx.NetworkXNoPath:
                 continue
-        # print(f"Total: {total}, Fails: {fails}, fails_type_2: {fails_type_2}")
+
+            if not decr_algo.query_linear(u,v) <= true_uv_dist*(1+epsilon):
+                fails += 1
+            if not decr_algo.query_binsearch(u,v) == decr_algo.query_linear(u,v):
+                fails_type_2 += 1
+            total += 1
+            
+        print(f"Total: {total}, Fails: {fails}, Fails type 2: {fails_type_2}")
 
 
 

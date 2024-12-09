@@ -24,9 +24,9 @@ class DecrAPSPConstTAlgo(StatAlgo):
         self.oracle:Oracle = Oracle(base_graph,k=2,d=self.n**0.5)
         self.r = floor(0.5*log(self.n,2))
         print("R: ", self.r)
-        self.S_r = self.decr_lln.S_s[self.r]
+        self.S_r = self.decr_lln.S_lst[self.r]
         print("Len(S_r): ", len(self.S_r))
-        self.ES_M_r = self.decr_lln.ES_M[self.r]
+        self.ES_M_r = self.decr_lln.S_trees[self.r]
         self.dist_pairs_r = dict()
         print("Making dist_pairs_r.")
         for (u,v) in tqdm(list(combinations(self.S_r,2))):
@@ -95,10 +95,10 @@ if __name__ == "__main__":
         
         for u,v in (list(combinations(decr_algo.base_graph.nodes,2))):
             try: 
-                true_l = nx.shortest_path_length(decr_algo.base_graph,u,v)
+                true_uv_dist = nx.shortest_path_length(decr_algo.base_graph,u,v)
 
 
-                if not decr_algo.query(u,v) <= true_l*(1+epsilon):
+                if not decr_algo.query(u,v) <= true_uv_dist*(1+epsilon):
                     fails += 1
                 total += 1
             except nx.NetworkXNoPath:
