@@ -9,7 +9,7 @@ random.seed(31415)
 
 get_cointoss = lambda p: random.binomialvariate(1,p)
 
-class Oracles(DynAlgo):
+class Oracle(DynAlgo):
 
     def __init__(self, base_graph:nx.Graph, k:int, d:int): 
         DynAlgo.__init__(self, base_graph) 
@@ -41,13 +41,21 @@ class Oracles(DynAlgo):
                 if get_cointoss(self.cointoss_prob):
                     self.A_s[a_idx].add(node)
         self.A_bar_s = dict()
+        
+        self.which_Abar_s = dict()
+
         self.multi_ES_A_s = dict()
+        
+
         
         for a_idx in range(self.k):
             self.A_bar_s[a_idx]= (self.A_s[a_idx] - self.A_s[a_idx+1])
             self.multi_ES_A_s[a_idx] = (ESAlgov2(self.oracle_graph,self.A_s[a_idx],self.dbar))
         
-        
+        for a_idx in range(self.k):
+            for node in self.A_bar_s[a_idx]:
+                self.which_Abar_s[node] = a_idx
+
         self.single_ES_s:dict[int,ESAlgov2] = dict()
         for v in self.base_graph.nodes:
             self.single_ES_s[v] = ESAlgov2(self.oracle_graph,v,self.dbar)
@@ -98,12 +106,12 @@ class Oracles(DynAlgo):
         for w in self.oracle_graph.nodes:
             s_ES_w:ESAlgov2 =  self.single_ES_s[w]
             if((u,v) in s_ES_w.es_graph.edges):
-                s_ES_w.es_delete_genf(u,v,perf_mode=True)
+                s_ES_w.es_delete_oneshot(u,v)
                 shifted.append((s_ES_w, s_ES_w.shifted, True)) 
         for a_idx in range(self.k):
             m_ES_a:ESAlgov2 = self.multi_ES_A_s[a_idx]
             if((u,v) in m_ES_a.es_graph.edges):
-                m_ES_a.es_delete_genf(u,v,perf_mode=True)
+                m_ES_a.es_delete_oneshot(u,v)
                 shifted.append((m_ES_a,m_ES_a.shifted, False))
         for shifted_triple in shifted:
             es:ESAlgov2 = shifted_triple[0]
@@ -111,42 +119,43 @@ class Oracles(DynAlgo):
             is_single:bool = shifted_triple[2]
 
             for x in shifted_nodes:
-                if(is_single):
-                    w = es.get_root(x)
-                    abar_idx = self.which_Abar_s[w]
+                if x in es.es_graph.nodes:
+                    if(is_single):
+                            w = es.get_root(x)
+                            abar_idx = self.which_Abar_s[w]
 
-                    m_ES:ESAlgov2 = self.multi_ES_A_s[abar_idx+1]
-                    delta_x_w = es.get_level(x)
+                            m_ES:ESAlgov2 = self.multi_ES_A_s[abar_idx+1]
+                            delta_x_w = es.get_level(x)
 
-                    if x not in m_ES.es_graph.nodes or delta_x_w < m_ES.get_level(x):
-                        self.C[w].add(x)
-                        self.B[x].add(w)
+                            if x not in m_ES.es_graph.nodes or delta_x_w < m_ES.get_level(x):
+                                self.C[w].add(x)
+                                self.B[x].add(w)
+                            else:
+                                self.C[w].remove(x)
+                                self.B[x].remove(w)
+
                     else:
-                        self.C[w].remove(x)
-                        self.B[x].remove(w)
-
-                else:
-                    alpha = self.multi_ES_A_s.index(es) - 1
-                    for w in self.A_bar_s[alpha]:
-                        delta_x_A_nxt = es.get_level(x)
-                        T_w:ESAlgov2 = self.single_ES_s[w]
-                        
-                        if x not in T_w.es_graph.nodes or T_w.get_level(x) >= delta_x_A_nxt:
-                            self.C[w].remove(x)
-                            self.B[x].remove(w)
-                        else:
-                            self.C[w].add(x)
-                            self.B[x].add(w)
+                        alpha = self.multi_ES_A_s.index(es) - 1
+                        for w in self.A_bar_s[alpha]:
+                            delta_x_A_nxt = es.get_level(x)
+                            T_w:ESAlgov2 = self.single_ES_s[w]
+                            
+                            if x not in T_w.es_graph.nodes or T_w.get_level(x) >= delta_x_A_nxt:
+                                self.C[w].remove(x)
+                                self.B[x].remove(w)
+                            else:
+                                self.C[w].add(x)
+                                self.B[x].add(w)
                     
 
 if __name__ == "__main__":
-    from pprint import pprint
+    # from pprint import pprint
     k= 2 
     d = 3
     eps = 2*k - 1 
 
     nx_graph = get_connected_gnp_graph(400,200,0.008)
-    oracles = Oracles(nx_graph,k,d) 
+    oracles = Oracle(nx_graph,k,d) 
     # print(nx.diameter(nx_graph))
 
     # for i in oracles.oracle_graph.nodes:

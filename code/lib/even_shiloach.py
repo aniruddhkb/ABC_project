@@ -55,30 +55,23 @@ class ESAlgov2(BFSAlgo,DynAlgo):
             path.append(node)
         return path
     
-    def es_delete_subgraph(self, node:int, curr_updates:dict|None):
-       
-        nodes_del_Q = deque([node,]) 
-        while len(nodes_del_Q) > 0:
-            curr_node = nodes_del_Q.pop()
-            self.shifted.append(curr_node)
-            curr_node_level = self.es_graph.nodes[curr_node]['level'] 
-            self.levels_to_nodes[curr_node_level].remove(curr_node)
-            if(len(self.levels_to_nodes[curr_node_level]) == 0):
-                self.levels_to_nodes.pop(curr_node_level)
-            
-            if not curr_updates is None:
-                curr_updates['es_tree']['nodes'].append((curr_node,'DEL'))
-            
-            for neighbor in self.es_graph.neighbors(curr_node):
-            
-                if not curr_updates is None:
-                    curr_updates['es_tree']['edges'].append(((curr_node,neighbor),'DEL')) 
-            
-                nodes_del_Q.appendleft(neighbor)
-            self.es_graph.remove_node(curr_node)
+    def es_delete_subtree(self, node:int, curr_updates:dict|None):
+        
+        cc = nx.node_connected_component(self.es_graph,node)
+        self.shifted.extend(list(cc))
+        assert not any([node in cc for node in self.multi_roots])
+
+        for node in cc:
+            if curr_updates is not None:
+                if((node,'MOD') in curr_updates['es_tree']['nodes']):
+                    curr_updates['es_tree']['nodes'].remove((node,'MOD'))
+
+                curr_updates['es_tree']['nodes'].append((node,'DEL'))
+
+        self.es_graph.remove_nodes_from(cc)
 
     def es_delete_oneshot(self, u:int, v:int):
-        return next(self.es_delete_genf(u,v))
+        return next(self.es_delete_genf(u,v,perf_mode=True))
 
     def es_delete_genf(self, u:int, v:int, perf_mode:bool=False):     
         
@@ -194,13 +187,13 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                         self.levels_to_nodes.pop(curr_Q_node_data['level'] - 1)
                     
                         if not perf_mode:
-                            self.es_delete_subgraph(curr_Q_node, curr_updates)
+                            self.es_delete_subtree(curr_Q_node, curr_updates)
                             self.refresh_update_dict(curr_updates)
                             #print("A NODE WENT BELOW THE LINE:", curr_Q_node)
                             yield(curr_updates, True)
                             return
                         else:
-                            self.es_delete_subgraph(curr_Q_node, None)
+                            self.es_delete_subtree(curr_Q_node, None)
                             yield(None, True)
                             return
 
@@ -230,9 +223,8 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                     for former_child in curr_Q_node_data['friends']: 
                         former_child_data = self.es_graph.nodes[former_child]  
                         if len(former_child_data['parents']) > 0:
-                            former_child_data['tree_parent'] = former_child_data['parents'].pop()
-                            former_child_data['parents'].add(former_child_data['tree_parent']) 
-
+                            former_child_data['tree_parent'] = next(iter(former_child_data['parents']))
+                            former_child_data['root'] = self.es_graph.nodes[former_child_data['tree_parent']]['root']
                             self.es_graph.edges[(former_child_data['tree_parent'],former_child)]['is_tree_edge'] = True
                             if not perf_mode:
                                 curr_updates['es_tree']['edges'].append(((former_child,former_child_data['tree_parent']),'MOD'))
@@ -278,8 +270,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                 if not perf_mode:
                     v_data.pop('original_orphan')
                     #print("FINISHED ORPHAN Q")
-        #print("FINISHED DELETION")
-        #print("CURRENT NODES:", self.es_graph.nodes)
+        
         if not perf_mode:
             for node in self.es_graph.nodes:
                 curr_updates['es_tree']['nodes'].append((node,'MOD'))
