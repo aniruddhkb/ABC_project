@@ -6,7 +6,9 @@ from dash import Dash, html, dcc, Input, Output, callback, Patch
 import plotly.graph_objects as go 
 from typing import Type
 from copy import deepcopy
-
+import random 
+random.seed(19561021)
+get_cointoss = lambda p: random.binomialvariate(1,p)
 DEFAULT_TEXT_SIZE = 24
 DEFAULT_NODE_SIZE = 10
 DEFAULT_NODE_COLOR = 'black'
@@ -498,13 +500,20 @@ def default_new_fig():
     return fig
 
 def get_connected_gnp_graph(n, lower_bound_n, p): 
-    pre_base_graph =  nx.fast_gnp_random_graph(n,p)
-    cc_nodes_set = max(nx.connected_components(pre_base_graph), key=len)
     
-    base_graph = nx.induced_subgraph(pre_base_graph,cc_nodes_set).copy()
     
-    assert len(base_graph.nodes) >= lower_bound_n
-    
+    while True:
+        try:
+            pre_base_graph =  nx.fast_gnp_random_graph(n,p)
+            cc_nodes_set = max(nx.connected_components(pre_base_graph), key=len)
+            assert len(cc_nodes_set) >= lower_bound_n
+            base_graph = nx.induced_subgraph(pre_base_graph,cc_nodes_set).copy()
+            break
+
+        except AssertionError:
+            p *= 2
+
+    print("GNP_PROB: ", p)
     return base_graph
 
 

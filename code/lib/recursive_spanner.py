@@ -82,6 +82,7 @@ def recur_spanner(G_prime:nx.Graph,kappa:int,nu:float,D:int,K:int, recursion_dep
         D_pwr_l = D**l 
         
         ker_chi, chi, clusters_edges = fsc.func_get_complete_cover(G_prime,r=D_pwr_l,beta=kappa)
+        assert set().union(*chi) == G_prime_nodes
         part_spanner = part_spanner.union(clusters_edges)
         len_clust_thr = len(G_prime_nodes)**(1 - nu)
         # print(f"Nbhd size: {D_pwr_l}")

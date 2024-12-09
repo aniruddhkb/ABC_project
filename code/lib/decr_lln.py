@@ -14,10 +14,14 @@ random.seed(29824)
 STATUS_LOW = -1
 STATUS_OK = 0 
 STATUS_HIGH = 1
-MULTI_THREAD = False
-get_cointoss = lambda p: random.binomialvariate(1,p)
 
-
+try:
+    import syscheck
+    syscheck.syscheck()
+    MULTI_THREAD = True
+    N_THREADS = 11
+except RuntimeError:
+    MULTI_THREAD = False
 
 class DecrAPSPAlgo(DynAlgo):
 
@@ -83,10 +87,10 @@ class DecrAPSPAlgo(DynAlgo):
                         V_trees_i[w] = pool.apply_async(ESAlgov2, args=(self.base_graph,w,2**(i+2)))        
                     self.V_trees.append(V_trees_i)
 
-                for i in (range(self.I_range)):
-                    print(f"Waiting for {i}")
+                for i in tqdm(range(self.I_range)):
+                    # print(f"Waiting for {i}")
                     V_trees_i = self.V_trees[i]
-                    for w in tqdm(self.S_lst[i]):
+                    for w in (self.S_lst[i]):
                         V_trees_i[w] = V_trees_i[w].get()
 
         #Single-threaded version
@@ -139,9 +143,10 @@ class DecrAPSPAlgo(DynAlgo):
 
     def evaluate_S_i(self,u,v,i):
         S_tree_i:ESAlgov2 = self.S_trees[i]
-        if u in S_tree_i.es_graph.nodes:
+        if u in S_tree_i.es_graph.nodes and S_tree_i.get_level(u) <= self.eps*2**i:
             w = S_tree_i.get_root(u)
-            assert S_tree_i.get_level(u) <= self.eps*2**i
+
+            
 
             V_tree_i_w:ESAlgov2 = self.V_trees[i][w]
             assert u in V_tree_i_w.es_graph.nodes
@@ -151,6 +156,8 @@ class DecrAPSPAlgo(DynAlgo):
                 return V_tree_i_w.get_level(u) + V_tree_i_w.get_level(v)
             else:
                 return float("inf")
+        else:
+            return float("inf")
             
     def query_binsearch(self,u,v): 
         low_idx = 0
