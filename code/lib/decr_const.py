@@ -35,22 +35,31 @@ class DecrAPSPConstTAlgo(StatAlgo):
         for u in self.S_r:
             self.dist_pairs_r[(u,u)] = 0
         
-    def query(self,u,v):
+    def query(self,u,v, test_val = None):
         oracle_guess = self.oracle.double_distance_query(u,v)
 
         
         if oracle_guess < 3*self.n**0.5:
-            i_start = max(floor(log(oracle_guess/3,2)),0)
+            i_start = max(floor(log(oracle_guess/3,2)  -1 ),0)
             lln_guesses = [self.decr_lln.evaluate_S_i(u,v,i) for i in range(i_start,i_start + 3) if i < self.decr_lln.I_range]
-            return min(lln_guesses + [oracle_guess,])
+            ans = min(lln_guesses + [oracle_guess,])
+            if test_val is not None:
+                if ans < test_val:
+                    print(f"u: {u}, v: {v}, oracle_guess: {oracle_guess}, lln_guesses: {lln_guesses}, ans: {ans}")
+                    print("")
         else: 
             print('miss.')
             a = self.ES_M_r.get_root(u)
             b = self.ES_M_r.get_root(v) 
             if a > b:
                 a,b = b,a
-            return self.dist_pairs_r[(a,b)] + self.ES_M_r.get_level(u) + self.ES_M_r.get_level(v)
+            ans = self.dist_pairs_r[(a,b)] + self.ES_M_r.get_level(u) + self.ES_M_r.get_level(v)
+            if test_val is not None:
+                if ans < test_val:
+                    print(f"u: {u}, v: {v}, oracle_guess: {oracle_guess}, ans: {ans}")
+        return ans
     def recompute_dist_pairs_r(self):
+        self.S_r = self.decr_lln.S_lst[self.r]
         self.dist_pairs_r = dict()
         for (u,v) in list(combinations(self.S_r,2)):
             u,v = min(u,v),max(u,v) 
@@ -85,34 +94,39 @@ if __name__ == "__main__":
     decr_constTalgo = DecrAPSPConstTAlgo(base_graph,epsilon,c)
 
     print("TESTING.")
+    first_time = True
     while True:
         total = 0
         fails = 0
-        fails_type_2 = 0
         uv_s = list(decr_constTalgo.base_graph.edges)
         if(len(uv_s) < 100):
             break
-        print("DELETING EDGES.")
-        for _ in tqdm(range(random.randint(10,100))):
-            skip = False
-            uv = random.choice(uv_s)
-            uv_s.remove(uv)
-            decr_constTalgo.base_graph.remove_edge(*uv)
-            if not nx.is_connected(decr_constTalgo.base_graph):
-                skip = True
-            decr_constTalgo.base_graph.add_edge(*uv)
-            if not skip:
-                decr_constTalgo.delete(*uv)
-
+        if not first_time:
+            print("DELETING EDGES.")
+            for _ in tqdm(range(random.randint(10,100))):
+                skip = False
+                uv = random.choice(uv_s)
+                uv_s.remove(uv)
+                decr_constTalgo.base_graph.remove_edge(*uv)
+                if not nx.is_connected(decr_constTalgo.base_graph):
+                    skip = True
+                decr_constTalgo.base_graph.add_edge(*uv)
+                if not skip:
+                    decr_constTalgo.delete(*uv)
+        else:
+            first_time = False
         true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_constTalgo.base_graph))
         for u,v in tqdm(list(combinations(decr_constTalgo.base_graph.nodes,2))):
             try: 
-                true_uv_dist = true_uv_dists[u][v]
+                true_ans = true_uv_dists[u][v]
             except KeyError or nx.NetworkXNoPath:
                 continue
-
-            if not decr_constTalgo.query(u,v) <= true_uv_dist*(1+epsilon):
+            given_ans = decr_constTalgo.query(u,v,true_ans)
+            if not (true_ans <= given_ans and given_ans <= true_ans*(1+epsilon)):
+            # if not ( given_ans <= true_ans*(1+epsilon)):
                 fails += 1
+                if(true_ans > given_ans):
+                    print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
             total += 1
             
         print(f"Total: {total}, Fails: {fails}")

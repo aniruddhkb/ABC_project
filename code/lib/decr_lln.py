@@ -223,13 +223,15 @@ if __name__ == "__main__":
         true_uv_dists = dict(nx.all_pairs_shortest_path_length(decr_algo.base_graph))
         for u,v in tqdm(list(combinations(decr_algo.base_graph.nodes,2))):
             try: 
-                true_uv_dist = true_uv_dists[u][v]
+                true_ans = true_uv_dists[u][v]
             except KeyError or nx.NetworkXNoPath:
                 continue
+            given_ans = decr_algo.query_linear(u,v)
+            if not (true_ans <= given_ans and given_ans <= (1+epsilon)*true_ans):
 
-            if not decr_algo.query_linear(u,v) <= true_uv_dist*(1+epsilon):
+                print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
                 fails += 1
-            if not decr_algo.query_binsearch(u,v) == decr_algo.query_linear(u,v):
+            if not decr_algo.query_binsearch(u,v) == given_ans:
                 fails_type_2 += 1
             total += 1
             

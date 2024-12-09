@@ -72,6 +72,12 @@ class ESAlgov2(BFSAlgo,DynAlgo):
 
     def es_delete_oneshot(self, u:int, v:int):
         return next(self.es_delete_genf(u,v,perf_mode=True))
+    
+    def update_root_recur(self,node, rootval): 
+        self.es_graph.nodes[node]['root'] = rootval
+        for child in self.es_graph.nodes[node]['children']:
+            if self.es_graph.nodes[child]['tree_parent'] == node:
+                self.update_root_recur(child,rootval)
 
     def es_delete_genf(self, u:int, v:int, perf_mode:bool=False):     
         
@@ -110,7 +116,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
             if len(v_data['parents']) > 0:
                 v_data['tree_parent'] = next(iter(v_data['parents']))
                 self.es_graph.edges[(v_data['tree_parent'],v)]['is_tree_edge'] = True 
-                v_data['root'] = self.es_graph.nodes[v_data['tree_parent']]['root']
+                
                 
                 if not perf_mode:
                     curr_updates['es_tree']['edges'].append(((v_data['tree_parent'],v),'MOD'))
@@ -118,7 +124,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
         ########## NONTRIVIAL CASE BELOW ##############
             else:    
                 v_data['tree_parent'] = -1
-                v_data['root'] = -1 
+                
                 
                 orphans_Q = deque([v,])
                 
@@ -213,7 +219,9 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                         former_child_data['parents'].remove(curr_Q_node)
                         former_child_data['friends'].add(curr_Q_node)
                         if former_child_data['tree_parent'] == curr_Q_node:
-                            self.es_graph.edges[(former_child_data['tree_parent'],former_child)]['is_tree_edge'] = False
+                            self.es_graph.edges[(former_child_data['tree_parent'],former_child)]['is_tree_edge'] = False 
+                            former_child_data['tree_parent'] = -1
+                            
                             if not perf_mode:
                                 curr_updates['es_tree']['edges'].append(((curr_Q_node,former_child),'MOD'))
                         
@@ -221,21 +229,21 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                                 curr_updates['es_tree']['nodes'].append((former_child,'MOD'))
 
                     for former_child in curr_Q_node_data['friends']: 
-                        former_child_data = self.es_graph.nodes[former_child]  
-                        if len(former_child_data['parents']) > 0:
-                            former_child_data['tree_parent'] = next(iter(former_child_data['parents']))
-                            former_child_data['root'] = self.es_graph.nodes[former_child_data['tree_parent']]['root']
-                            self.es_graph.edges[(former_child_data['tree_parent'],former_child)]['is_tree_edge'] = True
-                            if not perf_mode:
-                                curr_updates['es_tree']['edges'].append(((former_child,former_child_data['tree_parent']),'MOD'))
-                    
-                        else:
-                            former_child_data['tree_parent'] = -1
-                            orphans_Q.append(former_child) 
-                            self.orphans.append(former_child)
+                        former_child_data = self.es_graph.nodes[former_child]
+                        if(former_child_data['tree_parent'] == -1):  
+                            if len(former_child_data['parents']) > 0:
+                                former_child_data['tree_parent'] = next(iter(former_child_data['parents']))
+                                
+                                self.es_graph.edges[(former_child_data['tree_parent'],former_child)]['is_tree_edge'] = True
+                                if not perf_mode:
+                                    curr_updates['es_tree']['edges'].append(((former_child,former_child_data['tree_parent']),'MOD'))
+                        
+                            else:
+                                orphans_Q.append(former_child) 
+                                self.orphans.append(former_child)
 
-                            if not perf_mode:
-                                curr_updates['es_tree']['nodes'].append((former_child,'MOD'))
+                                if not perf_mode:
+                                    curr_updates['es_tree']['nodes'].append((former_child,'MOD'))
                     # if not perf_mode:
                     #     self.refresh_update_dict(curr_updates)
                     #     yield(curr_updates, False)
@@ -247,7 +255,7 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                     if len(curr_Q_node_data['parents']) > 0:
                         curr_Q_node_data['tree_parent'] = next(iter(curr_Q_node_data['parents']))
                         
-                        curr_Q_node_data['root']=self.es_graph.nodes[curr_Q_node_data['tree_parent']]['root']
+                        
 
                         self.es_graph.edges[(curr_Q_node_data['tree_parent'],curr_Q_node)]['is_tree_edge'] = True                    
                         if not perf_mode:
@@ -266,7 +274,8 @@ class ESAlgov2(BFSAlgo,DynAlgo):
                             self.refresh_update_dict(curr_updates)
                             yield(curr_updates, False)
                             curr_updates = self.get_new_update_dict()
-
+                
+                self.update_all_roots_levels()
                 if not perf_mode:
                     v_data.pop('original_orphan')
                     #print("FINISHED ORPHAN Q")
@@ -290,6 +299,18 @@ class ESAlgov2(BFSAlgo,DynAlgo):
         else:
             return float("inf")
     
+    def rec_update_roots_levels(self, node:int, newroot:int, level:int):
+        self.es_graph.nodes[node]['root'] = newroot
+        self.es_graph.nodes[node]['level'] = level
+        for child in self.es_graph.nodes[node]['children']:
+            if self.es_graph.nodes[child]['tree_parent'] == node:
+                self.rec_update_roots_levels(child,newroot,level + 1)
+
+    def update_all_roots_levels(self):
+        for root in self.multi_roots:
+            self.rec_update_roots_levels(root,root,0)
+        
+
     def get_root(self,node:int)->int:
         assert node in self.es_graph.nodes
         return self.es_graph.nodes[node]['root']

@@ -61,8 +61,15 @@ class Oracle(DynAlgo):
                 break 
             i += 1
             u, v = v, u
-            w = self.A_trees[i].get_root(u)
-        return self.V_trees[w].get_level(v) + self.A_trees[i].get_level(u) 
+            
+            try:
+                w = self.A_trees[i].get_root(u)
+            except :
+                raise KeyError
+            assert self.A_trees[i].get_level(u) == self.V_trees[w].get_level(u)
+        
+        return self.V_trees[w].get_level(v) + self.V_trees[w].get_level(u) 
+        
             
     def delete(self,u:int,v:int)->None: 
         assert u in self.oracle_graph.nodes and v in self.oracle_graph.nodes
@@ -88,35 +95,57 @@ if __name__ == "__main__":
         except AssertionError:
             prob *= 2
     k= 2 
-    # d = floor(nx_graph.number_of_nodes()**0.5)
-    d = 3
+    d = floor(base_graph.number_of_nodes()**0.5)
+    
     eps = 2*k - 1 
 
     oracle = Oracle(base_graph,k,d) 
-    total = 0
-    fails = 0
-    for u, v in tqdm(list(combinations(oracle.oracle_graph.nodes,2))):
-        true_ans = nx.shortest_path_length(oracle.oracle_graph,u,v)
-        if true_ans <= d:
-            total += 1
-            given_ans = oracle.double_distance_query(u,v)
-            if(given_ans == float("inf")):
-                print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
-            
-            if(not given_ans <= eps*true_ans ):
-                fails += 1
-            
-    print(f"\nTotal: {total}, Fails: {fails}")    
-    print("\n")
-    
-                            
-                    
-            
-        
-        
-        
-
+    while True:
+        total = 0
+        fails = 0
+        for u, v in tqdm(list(combinations(oracle.oracle_graph.nodes,2))):
+            true_ans = nx.shortest_path_length(oracle.oracle_graph,u,v)
+            if true_ans <= d:
+                total += 1
+                given_ans = oracle.double_distance_query(u,v)
+                # if(given_ans == float("inf")):
                 
+                if(not (true_ans <= given_ans and given_ans <= eps*true_ans)):
+                    print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
+                    fails += 1
+            
+        print(f"\nTotal: {total}, Fails: {fails}")    
+        print("\n")
+
+        uv_s = list(oracle.base_graph.edges)
+        if(len(uv_s) < 100):
+            break
+        print("DELETING EDGES.")
+        n_deletions = 0
+        for _ in tqdm(range(random.randint(10,100))):
+            skip = False
+            uv = random.choice(uv_s)
+            oracle.base_graph.remove_edge(*uv)
+            if not nx.is_connected(oracle.base_graph):
+                skip  = True
+            oracle.base_graph.add_edge(*uv)
+            if(skip):
+                continue
+            uv_s.remove(uv)
+            
+            oracle.delete(*uv)
+            n_deletions += 1
+        print(f"Deleted {n_deletions} edges.")
+                
+        
+                                
+                        
+                
+            
+            
+            
+
+                    
 
 
 
