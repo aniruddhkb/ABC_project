@@ -118,7 +118,11 @@ class BFSAlgo(StatAlgo):
         self.bfs_graph = self.bfs_graph.subgraph(self.bfs_safe_nodes).copy()
 
     def func_bfs(base_graph:nx.Graph,start_node_arg:Iterable[int]|int,max_level:int = None, allowed_node_set:None|Iterable = None)->nx.DiGraph:
-        
+        assert isinstance(start_node_arg, int) or isinstance(start_node_arg, Iterable) 
+        if isinstance(start_node_arg, Iterable):
+            assert all([node in base_graph.nodes for node in start_node_arg])
+        else:
+            assert start_node_arg in base_graph.nodes
         allowed_node_set = set(allowed_node_set).intersection(set(base_graph.nodes)) if allowed_node_set is not None else None
         if isinstance(start_node_arg, int):
             if allowed_node_set is not None:
@@ -127,6 +131,9 @@ class BFSAlgo(StatAlgo):
                 bfs_tree:nx.DiGraph = nx.bfs_tree(base_graph, start_node_arg, depth_limit= max_level)
 
             bfs_nodes = set(bfs_tree.nodes)
+
+            all([base_graph.has_edge(*edge) for edge in bfs_tree.edges])
+
         else:
             virt_node = 'virtual_root' 
             base_graph.add_node(virt_node) 
@@ -134,14 +141,17 @@ class BFSAlgo(StatAlgo):
                 base_graph.add_edge(virt_node, node)
             if allowed_node_set is not None:
                 allowed_node_set.add(virt_node)
-                bfs_tree:nx.DiGraph = nx.bfs_tree(base_graph.subgraph(allowed_node_set), virt_node, depth_limit = max_level + 1 if max_level is not None else None)
-                
+                bfs_tree:nx.DiGraph = nx.to_undirected(nx.bfs_tree(base_graph.subgraph(allowed_node_set), virt_node, depth_limit = max_level + 1 if max_level is not None else None)).copy()
+                all([base_graph.has_edge(*edge) for edge in bfs_tree.edges])
+
             else:
-                bfs_tree:nx.DiGraph = nx.bfs_tree(base_graph, virt_node, depth_limit = max_level + 1 if max_level is not None else None)
+                bfs_tree:nx.DiGraph = nx.to_undirected(nx.bfs_tree(base_graph, virt_node, depth_limit = max_level + 1 if max_level is not None else None)).copy()
+                assert all([base_graph.has_edge(*edge) for edge in bfs_tree.edges])
             bfs_tree.remove_node(virt_node)
             base_graph.remove_node(virt_node)
             bfs_nodes = set(bfs_tree.nodes)
-            
+            all([base_graph.has_edge(*edge) for edge in bfs_tree.edges])
+
         if allowed_node_set is not None:
             assert bfs_nodes.issubset(allowed_node_set)
         return bfs_tree

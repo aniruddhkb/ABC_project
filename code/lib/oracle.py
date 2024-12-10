@@ -62,12 +62,13 @@ class Oracle(DynAlgo):
             i += 1
             u, v = v, u
             
-            try:
+            if u in self.A_trees[i].es_graph.nodes:
                 w = self.A_trees[i].get_root(u)
-            except :
-                raise KeyError
-            assert self.A_trees[i].get_level(u) == self.V_trees[w].get_level(u)
-        
+
+                assert self.A_trees[i].get_level(u) == self.V_trees[w].get_level(u)
+
+            else:
+                return float("inf")
         return self.V_trees[w].get_level(v) + self.V_trees[w].get_level(u) 
         
             
@@ -89,10 +90,10 @@ class Oracle(DynAlgo):
 
 if __name__ == "__main__":
     
-    prob = 5e-3
+    prob = 1e-6
     while True:
         try:
-            base_graph: nx.Graph = get_connected_gnp_graph(900,600,prob)
+            base_graph: nx.Graph = get_connected_gnp_graph(1200,900,prob)
             break
         except AssertionError:
             prob *= 2

@@ -37,7 +37,10 @@ def func_get_cluster(R:set[int],U:set[int],v:int,Y_s:set[set[int]],G:nx.Graph,r:
             G_notin_Y.remove_nodes_from(list(set.union(*Y_s)))
     
     ker_z = set([v,])
+    assert set(G_notin_Y.edges).issubset(set(G.edges))
     init_T_z_graph:nx.Graph = BFSAlgo.func_bfs(G_notin_Y,ker_z,r)
+    assert [G_notin_Y.has_edge(*edge) for edge in init_T_z_graph.edges]
+    assert [G.has_edge(*edge) for edge in init_T_z_graph.edges]
     
     z = set(init_T_z_graph.nodes)
     T_y_edges = set()
@@ -76,6 +79,7 @@ def func_get_partial_cover(R:set[int], G:nx.Graph, r:int, beta:int):
         i += 1
         v = next(iter(U))
         ker_y, y, ker_z, z, T_y_edges = func_get_cluster(R,U,v,Y_s,G,r,beta)
+        assert all([G.has_edge(*edge) for edge in T_y_edges])
         T_y_s_edges = T_y_s_edges.union(T_y_edges)
         ker_R = ker_R.union(ker_y)
         
@@ -100,6 +104,7 @@ def func_get_complete_cover(G,r,beta):
         KER_CHI.extend(ker_Y_s)
         ZEES.extend(Z_s)
         R = R.difference(ker_R)
+        assert all([G.has_edge(*edge) for edge in T_y_s_edges])
         CLUSTERS_EDGES = CLUSTERS_EDGES.union(T_y_s_edges)
     
     return KER_CHI, CHI, CLUSTERS_EDGES

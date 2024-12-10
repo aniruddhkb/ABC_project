@@ -84,21 +84,23 @@ class DynAPSPAlgo(DynAlgo):
         if self.sp_n_sources > self.n:
             raise ValueError("Too many spanner sources.")
 
-        self.sp_graph = nx.Graph()
-        self.sp_graph.add_nodes_from(self.common_graph.nodes)
-        self.sp_graph.add_edges_from(recur_spanner(self.common_graph,self.sp_kappa,self.sp_nu,self.sp_D,self.sp_K))
+        # self.sp_graph = nx.Graph()
+        # self.sp_graph.add_nodes_from(self.common_graph.nodes)
+        self.sp_graph= nx.Graph(recur_spanner(self.common_graph,self.sp_kappa,self.sp_nu,self.sp_D,self.sp_K))
         assert nx.is_connected(self.sp_graph)
         assert self.common_graph.number_of_nodes() == self.n
         assert self.sp_graph.number_of_nodes() == self.n
         self.sp_roots = random.sample(list(self.sp_graph.nodes),self.sp_n_sources)
-        self.sp_tree = ESAlgov2(self.sp_graph,self.sp_roots)
+        self.sp_multi_tree = BFSAlgo(self.sp_graph,self.sp_roots)
+        self.sp_single_trees = {root:BFSAlgo(self.sp_graph,root) for root in self.sp_roots}
+        assert all([self.common_graph.has_edge(u,v) for (u,v) in self.sp_multi_tree.bfs_graph.edges])
     
     def reinit_consts(self):
         self.m = self.common_graph.number_of_edges()
         
         self.nonconst_d = self.n**(1 + self.all_delta) / self.m**0.5 
         self.nonconst_t = floor(self.m**0.5 /self.n**self.all_delta)
-
+        print("m, t, d: ", self.m, self.nonconst_t, self.nonconst_d)
     def new_phase(self):
         
         self.decr_apsp_algo = DecrAPSPConstTAlgo(self.base_graph,self.all_epsilon,self.decr_c) 
@@ -113,8 +115,11 @@ class DynAPSPAlgo(DynAlgo):
         
         assert all([self.common_graph.has_edge(u,v) for (u,v) in edges_to_delete])
         
-        for (u,v) in edges_to_delete:
-            self.decr_apsp_algo.delete(u,v)
+        for (u,v) in tqdm(edges_to_delete):
+            if self.decr_apsp_algo.base_graph.has_edge(u,v):
+                self.decr_apsp_algo.delete(u,v)
+            else:
+                print("Ooh, we're trying to delete an already added edge!")
 
 
             for w in self.ins_trees:
@@ -123,6 +128,7 @@ class DynAPSPAlgo(DynAlgo):
                     ins_tree.es_delete_oneshot(u,v)
         
             self.common_graph.remove_edge(u,v)
+        # self.common_graph.remove_edges_from(edges_to_delete)
         self.reinit_consts()
         self.get_new_spanner_tree()
 
@@ -142,7 +148,7 @@ class DynAPSPAlgo(DynAlgo):
         else:
             new_tree = ESAlgov2(self.common_graph,node,self.nonconst_d)
             self.ins_trees[node] = new_tree 
-            
+        # self.common_graph.add_edges_from([(node,neighbor) for neighbor in new_neighbors])
     def query(self,u:int,v:int): 
         
         assert u in self.common_graph.nodes and v in self.common_graph.nodes 
@@ -151,7 +157,12 @@ class DynAPSPAlgo(DynAlgo):
         
         l1 = self.decr_apsp_algo.query(u,v)
         l2 = float("inf")
-        l3 = self.sp_tree.get_level(u) + self.sp_tree.get_level(v) 
+        assert all([self.common_graph.has_edge(u,v) for (u,v) in self.sp_multi_tree.bfs_graph.edges])
+        self.root_u = self.sp_multi_tree.bfs_graph.nodes[u]["root"]
+
+        self.lu = self.sp_single_trees[self.root_u].bfs_graph.nodes[u]["level"]
+        self.lv = self.sp_single_trees[self.root_u].bfs_graph.nodes[v]["level"]
+        l3 = self.lu + self.lv
 
         for w in self.ins_trees:
             w_tree:ESAlgov2 = self.ins_trees[w]
@@ -161,6 +172,8 @@ class DynAPSPAlgo(DynAlgo):
         l_s = [l1,l2,l3]
         l_min_idx = l_s.index(min(l1,l2,l3))
         self.l_mins_counts[l_min_idx] += 1
+        self.l_min_idx = l_min_idx
+        self.l_s = l_s
         return l_s[l_min_idx]
 
 if __name__ == "__main__":
@@ -171,16 +184,16 @@ if __name__ == "__main__":
     except RuntimeError:
         MULTI_THREAD = False
     N_THREADS = 11 
-    base_graph = get_connected_gnp_graph(1000,500,4e-3)
-    input(f"Base graph has {base_graph.number_of_nodes()} nodes and {base_graph.number_of_edges()} edges. Press Enter to continue.")
+    base_graph = get_connected_gnp_graph(400,200,8e-3)
+    print(f"Base graph has {base_graph.number_of_nodes()} nodes and {base_graph.number_of_edges()} edges.")
     all_epsilon = 0.6 
-    all_delta = 0.5 
+    all_delta = 1e-1 
 
     decr_c = 0.5
 
     sp_zeta = 0.5 
     sp_rho = sp_zeta/2 + 0.3333
-    sp_c = 1e-6 
+    sp_c = 1e-2 
 
     dyn_apsp_algo = DynAPSPAlgo(base_graph,all_epsilon,all_delta,decr_c,sp_rho,sp_zeta,sp_c)
 
@@ -196,14 +209,47 @@ if __name__ == "__main__":
         given_ans = dyn_apsp_algo.query(u,v)
         if not (true_ans <= given_ans and given_ans <= true_ans*(1+all_epsilon)):
         # if not ( given_ans <= true_ans*(1+epsilon)):
-            fails += 1
             
             print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
+            print(f"l_s = {dyn_apsp_algo.l_s}")
+            print(f"l_u = {dyn_apsp_algo.lu}, l_v = {dyn_apsp_algo.lv}")
+            print(f"Who messed up? l {dyn_apsp_algo.l_min_idx + 1}")
+            fails += 1
         total += 1
     print(f"Total: {total}, Fails: {fails}")
-    
-    print("DELETIONS TESTING:")
+
+
+    print("MIXED TESTING:")
     while True:
+        print("\tINSERTION:")
+        print("t = ",dyn_apsp_algo.nonconst_t)
+        print("d = ",dyn_apsp_algo.nonconst_d)
+        ins_center = random.sample(list(dyn_apsp_algo.common_graph.nodes),1)[0] 
+        new_neighbors = random.sample([i for i in list(dyn_apsp_algo.common_graph.nodes) if not i in list(dyn_apsp_algo.common_graph.neighbors(ins_center))],random.randint(10,20))
+        dyn_apsp_algo.insert(ins_center,new_neighbors)
+        print(f"Inserted {len(new_neighbors)} edges.")
+
+        true_uv_dists = dict(nx.all_pairs_shortest_path_length(dyn_apsp_algo.base_graph))
+        total = 0
+        fails = 0
+        for u,v in tqdm(list(combinations(dyn_apsp_algo.base_graph.nodes,2))):
+            try: 
+                true_ans = true_uv_dists[u][v]
+            except KeyError or nx.NetworkXNoPath:
+                continue
+            given_ans = dyn_apsp_algo.query(u,v)
+            if not (true_ans <= given_ans and given_ans <= true_ans*(1+all_epsilon)):
+            # if not ( given_ans <= true_ans*(1+epsilon)):
+                
+                print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
+                print(f"l_s = {dyn_apsp_algo.l_s}")
+                print(f"Who messed up? l {dyn_apsp_algo.l_min_idx + 1}")
+                fails += 1
+            total += 1
+        print(f"Total: {total}, Fails: {fails};")   
+        print(f"l1 l2 l3 counts: {dyn_apsp_algo.l_mins_counts}")
+
+        print("\tDELETION:")
         edges_to_delete = random.sample(list(dyn_apsp_algo.common_graph.edges),100)
         for edge in edges_to_delete:
             assert dyn_apsp_algo.common_graph.has_edge(*edge)
@@ -237,11 +283,81 @@ if __name__ == "__main__":
             given_ans = dyn_apsp_algo.query(u,v)
             if not (true_ans <= given_ans and given_ans <= true_ans*(1+all_epsilon)):
             # if not ( given_ans <= true_ans*(1+epsilon)):
+                print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
+                print(f"l_s = {dyn_apsp_algo.l_s}")
+                print(f"Who messed up? l {dyn_apsp_algo.l_min_idx + 1}")
+                fails += 1
+            total += 1
+        print(f"Total: {total}, Fails: {fails}; {len(edges_to_delete)} deletions. {dyn_apsp_algo.common_graph.number_of_edges()} edges remaining.")   
+
+    
+    print("INSERTIONS TESTING:")
+    while True:
+        print("t = ",dyn_apsp_algo.nonconst_t)
+        print("d = ",dyn_apsp_algo.nonconst_d)
+        ins_center = random.sample(list(dyn_apsp_algo.common_graph.nodes),1)[0] 
+        new_neighbors = random.sample([i for i in list(dyn_apsp_algo.common_graph.nodes) if not i in list(dyn_apsp_algo.common_graph.neighbors(ins_center))],random.randint(10,20))
+        dyn_apsp_algo.insert(ins_center,new_neighbors)
+        print(f"Inserted {len(new_neighbors)} edges.")
+
+        true_uv_dists = dict(nx.all_pairs_shortest_path_length(dyn_apsp_algo.base_graph))
+        total = 0
+        fails = 0
+        for u,v in tqdm(list(combinations(dyn_apsp_algo.base_graph.nodes,2))):
+            try: 
+                true_ans = true_uv_dists[u][v]
+            except KeyError or nx.NetworkXNoPath:
+                continue
+            given_ans = dyn_apsp_algo.query(u,v)
+            if not (true_ans <= given_ans and given_ans <= true_ans*(1+all_epsilon)):
+            # if not ( given_ans <= true_ans*(1+epsilon)):
                 fails += 1
                 
                 print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
             total += 1
-        print(f"Total: {total}, Fails: {fails}; {len(edges_to_delete)} deletions. {dyn_apsp_algo.common_graph.number_of_edges()} edges remaining.")   
+        print(f"Total: {total}, Fails: {fails};")   
+        print(f"l1 l2 l3 counts: {dyn_apsp_algo.l_mins_counts}")
+
+    # print("DELETIONS TESTING:")
+    # while True:
+    #     edges_to_delete = random.sample(list(dyn_apsp_algo.common_graph.edges),100)
+    #     for edge in edges_to_delete:
+    #         assert dyn_apsp_algo.common_graph.has_edge(*edge)
+    #         dyn_apsp_algo.common_graph.remove_edge(*edge)
+    #     for edge in edges_to_delete:
+    #         assert not dyn_apsp_algo.common_graph.has_edge(*edge)
+    #         dyn_apsp_algo.common_graph.add_edge(*edge)
+        
+    #     edges_to_delete_cpy = edges_to_delete.copy()
+        
+    #     for edge in edges_to_delete_cpy:
+    #         dyn_apsp_algo.common_graph.remove_edge(*edge)
+    #         if(not nx.is_connected(dyn_apsp_algo.common_graph)):
+    #             dyn_apsp_algo.common_graph.add_edge(*edge)
+    #             edges_to_delete.remove(edge)
+    #     for edge in edges_to_delete_cpy:
+    #         if(not dyn_apsp_algo.common_graph.has_edge(*edge)):
+    #             dyn_apsp_algo.common_graph.add_edge(*edge)
+
+
+    #     print("Pre-validation of deletion done.")
+    #     dyn_apsp_algo.delete(edges_to_delete)
+    #     true_uv_dists = dict(nx.all_pairs_shortest_path_length(dyn_apsp_algo.base_graph))
+    #     total = 0
+    #     fails = 0
+    #     for u,v in tqdm(list(combinations(dyn_apsp_algo.base_graph.nodes,2))):
+    #         try: 
+    #             true_ans = true_uv_dists[u][v]
+    #         except KeyError or nx.NetworkXNoPath:
+    #             continue
+    #         given_ans = dyn_apsp_algo.query(u,v)
+    #         if not (true_ans <= given_ans and given_ans <= true_ans*(1+all_epsilon)):
+    #         # if not ( given_ans <= true_ans*(1+epsilon)):
+    #             fails += 1
+                
+    #             print(f"FAIL: {u} {v}; T = {true_ans}, Pred:{given_ans}")
+    #         total += 1
+    #     print(f"Total: {total}, Fails: {fails}; {len(edges_to_delete)} deletions. {dyn_apsp_algo.common_graph.number_of_edges()} edges remaining.")   
 
 
             

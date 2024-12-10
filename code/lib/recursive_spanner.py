@@ -82,7 +82,12 @@ def recur_spanner(G_prime:nx.Graph,kappa:int,nu:float,D:int,K:int, recursion_dep
         D_pwr_l = D**l 
         
         ker_chi, chi, clusters_edges = fsc.func_get_complete_cover(G_prime,r=D_pwr_l,beta=kappa)
+
         assert set().union(*chi) == G_prime_nodes
+        assert set().union(*ker_chi) == G_prime_nodes
+        assert all([len(set(i).intersection(set(j))) == 0 for i,j in combinations(ker_chi,2)])
+        assert all([G_prime.has_edge(*edge) for edge in clusters_edges])
+        # assert set(clusters_edges).issubset(G_prime_edges)
         part_spanner = part_spanner.union(clusters_edges)
         len_clust_thr = len(G_prime_nodes)**(1 - nu)
         # print(f"Nbhd size: {D_pwr_l}")
@@ -117,7 +122,9 @@ def validate_spanner(main_graph:nx.Graph,spanner_graph:nx.Graph,epsilon:float,be
     assert set(main_graph.nodes) == set(spanner_graph.nodes) 
     assert nx.is_connected(main_graph)
     assert nx.is_connected(spanner_graph)
-
+    assert all([main_graph.has_edge(*edge) for edge in spanner_graph.edges])
+    # assert set(spanner_graph.edges).issubset(set(main_graph.edges))
+    
     main_graph_apsp = dict(nx.shortest_path_length(main_graph))
     spanner_graph_apsp = dict(nx.shortest_path_length(spanner_graph))
     
@@ -126,11 +133,12 @@ def validate_spanner(main_graph:nx.Graph,spanner_graph:nx.Graph,epsilon:float,be
     print("\n")
     for i,j in tqdm(all_combinations):
         # assert spanner_graph_apsp[i][j] <= ceil((1 + epsilon)*main_graph_apsp[i][j] + beta)
-        if not spanner_graph_apsp[i][j] <= ceil((1 + epsilon)*main_graph_apsp[i][j] + beta):
+        if not (main_graph_apsp[i][j] <= spanner_graph_apsp[i][j] and spanner_graph_apsp[i][j] <= ceil((1 + epsilon)*main_graph_apsp[i][j] + beta)):
+            assert (main_graph_apsp[i][j] <= spanner_graph_apsp[i][j])
             print(f"\rFailure rate: {len(failures)/len(all_combinations)}", end="")
-            # print(f"Main graph shortest path: {main_graph_apsp[i][j]}")
-            # print(f"Spanner graph shortest path: {spanner_graph_apsp[i][j]}")
-            # print(f"Maximum allowable shortest path: {(1 + epsilon)*main_graph_apsp[i][j] + beta}")
+            print(f"Main graph shortest path: {main_graph_apsp[i][j]}")
+            print(f"Spanner graph shortest path: {spanner_graph_apsp[i][j]}")
+            print(f"Maximum allowable shortest path: {(1 + epsilon)*main_graph_apsp[i][j] + beta}")
             failures.append((i,j))
     print("\n")
     print(f"Total failures: {len(failures)}")
@@ -152,8 +160,8 @@ def get_beta(n:int,epsilon:float,rho:float,zeta:float,c0:float = 1e-3):
 if __name__ == "__main__": 
     # from dash import Dash, dcc, html, Input, Output, State, MATCH, ALL
 
-    main_graph: nx.Graph = get_connected_gnp_graph(10000,5000,3e-4)
-    assert len(main_graph.edges) < 20000
+    main_graph: nx.Graph = get_connected_gnp_graph(1000,500,3e-4)
+    assert len(main_graph.edges) < 2000
     print (f"Base graph has {len(main_graph.nodes)} nodes and {len(main_graph.edges)} edges")
     
     epsilon=0.6

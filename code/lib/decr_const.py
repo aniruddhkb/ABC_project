@@ -32,7 +32,7 @@ class DecrAPSPConstTAlgo(DynAlgo):
         print("R: ", self.r)
         self.S_r = self.decr_lln.S_lst[self.r]
         print("Len(S_r): ", len(self.S_r))
-        self.ES_M_r = self.decr_lln.S_trees[self.r]
+        self.ES_S_r = self.decr_lln.S_trees[self.r]
         self.dist_pairs_r = dict()
         print("Making dist_pairs_r.")
         for (u,v) in tqdm(list(combinations(self.S_r,2))):
@@ -54,15 +54,18 @@ class DecrAPSPConstTAlgo(DynAlgo):
                     print(f"u: {u}, v: {v}, oracle_guess: {oracle_guess}, lln_guesses: {lln_guesses}, ans: {ans}")
                     print("")
         else: 
-            print('miss.')
-            a = self.ES_M_r.get_root(u)
-            b = self.ES_M_r.get_root(v) 
-            if a > b:
-                a,b = b,a
-            ans = self.dist_pairs_r[(a,b)] + self.ES_M_r.get_level(u) + self.ES_M_r.get_level(v)
-            if test_val is not None:
-                if ans < test_val:
-                    print(f"u: {u}, v: {v}, oracle_guess: {oracle_guess}, ans: {ans}")
+            # print('miss.')
+            if(u in self.ES_S_r.es_graph.nodes and v in self.ES_S_r.es_graph.nodes):
+                a = self.ES_S_r.get_root(u)
+                b = self.ES_S_r.get_root(v) 
+                if a > b:
+                    a,b = b,a
+                ans = self.dist_pairs_r[(a,b)] + self.ES_S_r.get_level(u) + self.ES_S_r.get_level(v)
+            else: 
+                ans = float("inf")
+                if test_val is not None:
+                    if ans < test_val:
+                        print(f"u: {u}, v: {v}, oracle_guess: {oracle_guess}, ans: {ans}")
         return ans
     def recompute_dist_pairs_r(self):
         self.S_r = self.decr_lln.S_lst[self.r]
@@ -74,6 +77,8 @@ class DecrAPSPConstTAlgo(DynAlgo):
     def delete(self,u,v):
         self.oracle.delete(u,v)
         self.decr_lln.delete(u,v)
+        if(self.ES_S_r.es_graph.has_edge(u,v)):
+            self.ES_S_r.es_delete_oneshot(u,v)
         self.base_graph.remove_edge(u,v)
         self.recompute_dist_pairs_r()
         
@@ -87,7 +92,7 @@ if __name__ == "__main__":
         MULTI_THREAD = False
     prob = 1e-6
     
-    base_graph: nx.Graph = get_connected_gnp_graph(900,600,prob)
+    base_graph: nx.Graph = get_connected_gnp_graph(1000,800,prob)
             
     
     c = 0.5
