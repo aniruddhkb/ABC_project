@@ -184,7 +184,7 @@ if __name__ == "__main__":
     except RuntimeError:
         MULTI_THREAD = False
     N_THREADS = 11 
-    base_graph = get_connected_gnp_graph(400,200,8e-3)
+    base_graph = get_connected_gnp_graph(800,600,2e-3)
     print(f"Base graph has {base_graph.number_of_nodes()} nodes and {base_graph.number_of_edges()} edges.")
     all_epsilon = 0.6 
     all_delta = 1e-1 
